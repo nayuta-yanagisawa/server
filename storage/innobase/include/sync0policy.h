@@ -31,6 +31,31 @@ Created 2012-08-21 Sunny Bains.
 #include "os0thread.h"
 #include "srv0mon.h"
 
+class SourceLocation
+{
+public:
+  SourceLocation() : m_filename(NULL), m_line(0) {}
+
+  void set(const char *filename, unsigned line)
+  {
+    set_filename(filename);
+    set_line(line);
+  }
+
+  void set_filename(const char *filename) { m_filename= filename; }
+  void set_line(unsigned line) { m_line= line; }
+
+  const char *filename() const { return m_filename; }
+  unsigned line() const { return m_line; }
+
+private:
+  /** Filename from where enter was called */
+  const char *m_filename;
+
+  /** Line mumber in filename */
+  unsigned m_line;
+};
+
 #ifdef UNIV_DEBUG
 
 # define MUTEX_MAGIC_N 979585UL
@@ -46,8 +71,6 @@ public:
 		Context()
 			:
 			m_mutex(),
-			m_filename(),
-			m_line(),
 			m_thread_id(os_thread_id_t(ULINT_UNDEFINED))
 		{
 			/* No op */
@@ -76,9 +99,7 @@ public:
 
 			m_thread_id = os_thread_get_curr_id();
 
-			m_filename = filename;
-
-			m_line = line;
+			location.set(filename, line);
 		}
 
 		/** Reset to unlock state */
@@ -89,9 +110,7 @@ public:
 
 			m_thread_id = os_thread_id_t(ULINT_UNDEFINED);
 
-			m_filename = NULL;
-
-			m_line = 0;
+			location.set(NULL, 0);
 		}
 
 		/** Print information about the latch
@@ -121,7 +140,8 @@ public:
 		{
 			std::ostringstream msg;
 
-			msg << sync_basename(m_filename) << ":" << m_line;
+			msg << sync_basename(location.filename()) << ":"
+			    << location.line();
 
 			return(std::string(msg.str()));
 		}
@@ -129,11 +149,7 @@ public:
 		/** Mutex to check for lock order violation */
 		const Mutex*	m_mutex;
 
-		/** Filename from where enter was called */
-		const char*	m_filename;
-
-		/** Line mumber in filename */
-		unsigned	m_line;
+		SourceLocation location;
 
 		/** Thread ID of the thread that own(ed) the mutex */
 		os_thread_id_t	m_thread_id;
@@ -201,19 +217,14 @@ public:
 				os_thread_get_curr_id()));
 	}
 
-	/** @return the name of the file from the mutex was acquired */
-	const char* get_enter_filename() const
-		UNIV_NOTHROW
-	{
-		return(m_context.m_filename);
-	}
+  /** @return the name of the file from the mutex was acquired */
+  const char* get_enter_filename() const
+  {
+    return m_context.location.filename();
+  }
 
-	/** @return the name of the file from the mutex was acquired */
-	unsigned get_enter_line() const
-		UNIV_NOTHROW
-	{
-		return(m_context.m_line);
-	}
+  /** @return the name of the file from the mutex was acquired */
+  unsigned get_enter_line() const { return m_context.location.line(); }
 
 	/** @return id of the thread that was trying to acquire the mutex */
 	os_thread_id_t get_thread_id() const
@@ -247,11 +258,44 @@ struct NoPolicy {
 	latch_id_t get_id() const;
 };
 
+class MutexRelease
+{
+public:
+  /** Called when an attempt is made to lock the mutex
+  @param[in]	_		unused
+  @param[in]	filename	Filename from where it was called
+  @param[in]	line		Line number from where it was called */
+  void enter(const void *, const char *filename, unsigned line)
+  {
+    m_location.set(filename, line);
+  }
+
+  /** Called when the mutex is locked
+  @param[in]	_		unused
+  @param[in]	filename	Filename from where it was called
+  @param[in]	line		Line number from where it was called */
+  void locked(const void *, const char *filename, unsigned line)
+  {
+    m_location.set(filename, line);
+  }
+
+  /** @return the name of the file from the mutex was acquired */
+  const char *get_enter_filename() const { return m_location.filename(); }
+
+  /** @return the name of the file from the mutex was acquired */
+  unsigned get_enter_line() const { return m_location.line(); }
+
+private:
+  SourceLocation m_location;
+};
+
 /** Collect the metrics per mutex instance, no aggregation. */
 template <typename Mutex>
 struct GenericPolicy
 #ifdef UNIV_DEBUG
 : public MutexDebug<Mutex>
+#else
+: public MutexRelease
 #endif /* UNIV_DEBUG */
 {
 public:
@@ -333,30 +377,30 @@ public:
 		++m_count.m_calls;
 	}
 
-	/** Called when an attempt is made to lock the mutex
-	@param[in]	mutex		Mutex instance to be locked
-	@param[in]	filename	Filename from where it was called
-	@param[in]	line		Line number from where it was called */
-	void enter(
-		const MutexType&	mutex,
-		const char*		filename,
-		unsigned		line)
-		UNIV_NOTHROW
-	{
-		ut_d(MutexDebug<MutexType>::enter(&mutex, filename, line));
-	}
+  /** Called when an attempt is made to lock the mutex
+  @param[in]	mutex		Mutex instance to be locked
+  @param[in]	filename	Filename from where it was called
+  @param[in]	line		Line number from where it was called */
+  void enter(const MutexType &mutex, const char *filename, unsigned line)
+  {
+#ifdef UNIV_DEBUG
+  MutexDebug<MutexType>::enter(&mutex, filename, line);
+#else
+  MutexRelease::enter(&mutex, filename, line);
+#endif
+  }
 
-	/** Called when the mutex is locked
-	@param[in]	mutex		Mutex instance that is locked
-	@param[in]	filename	Filename from where it was called
-	@param[in]	line		Line number from where it was called */
-	void locked(
-		const MutexType&	mutex,
-		const char*		filename,
-		unsigned		line)
-		UNIV_NOTHROW
+  /** Called when the mutex is locked
+  @param[in]	mutex		Mutex instance that is locked
+  @param[in]	filename	Filename from where it was called
+  @param[in]	line		Line number from where it was called */
+  void locked(const MutexType&	mutex, const char *filename, unsigned line)
 	{
-		ut_d(MutexDebug<MutexType>::locked(&mutex, filename, line));
+#ifdef UNIV_DEBUG
+  MutexDebug<MutexType>::locked(&mutex, filename, line);
+#else
+  MutexRelease::locked(&mutex, filename, line);
+#endif
 	}
 
 	/** Called when the mutex is released
@@ -398,6 +442,8 @@ template <typename Mutex>
 class BlockMutexPolicy
 #ifdef UNIV_DEBUG
 : public MutexDebug<Mutex>
+#else
+: public MutexRelease
 #endif /* UNIV_DEBUG */
 {
 public:
@@ -477,18 +523,18 @@ public:
 		++m_count->m_calls;
 	}
 
-	/** Called when the mutex is locked
-	@param[in]	mutex		Mutex instance that is locked
-	@param[in]	filename	Filename from where it was called
-	@param[in]	line		Line number from where it was called */
-	void locked(
-		const MutexType&	mutex,
-		const char*		filename,
-		unsigned		line)
-		UNIV_NOTHROW
-	{
-		ut_d(MutexDebug<MutexType>::locked(&mutex, filename, line));
-	}
+  /** Called when the mutex is locked
+  @param[in]	mutex		Mutex instance that is locked
+  @param[in]	filename	Filename from where it was called
+  @param[in]	line		Line number from where it was called */
+  void locked(const MutexType &mutex, const char *filename, unsigned line)
+  {
+#ifdef UNIV_DEBUG
+    MutexDebug<MutexType>::locked(&mutex, filename, line);
+#else
+    MutexRelease::locked(&mutex, filename, line);
+#endif
+  }
 
 	/** Called when the mutex is released
 	@param[in]	mutex		Mutex instance that is released */
@@ -498,18 +544,18 @@ public:
 		ut_d(MutexDebug<MutexType>::release(&mutex));
 	}
 
-	/** Called when an attempt is made to lock the mutex
-	@param[in]	mutex		Mutex instance to be locked
-	@param[in]	filename	Filename from where it was called
-	@param[in]	line		Line number from where it was called */
-	void enter(
-		const MutexType&	mutex,
-		const char*		filename,
-		unsigned		line)
-		UNIV_NOTHROW
-	{
-		ut_d(MutexDebug<MutexType>::enter(&mutex, filename, line));
-	}
+  /** Called when an attempt is made to lock the mutex
+  @param[in]	mutex		Mutex instance to be locked
+  @param[in]	filename	Filename from where it was called
+  @param[in]	line		Line number from where it was called */
+  void enter(const MutexType &mutex, const char *filename, unsigned line)
+  {
+#ifdef UNIV_DEBUG
+    MutexDebug<MutexType>::enter(&mutex, filename, line);
+#else
+    MutexRelease::enter(&mutex, filename, line);
+#endif
+  }
 
 	/** Print the information about the latch
 	@return the string representation */

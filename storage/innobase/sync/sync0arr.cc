@@ -47,6 +47,7 @@ Created 9/5/1995 Heikki Tuuri
 
 #include "lock0lock.h"
 #include "sync0rw.h"
+#include "sync0types.h"
 
 /*
 			WAIT ARRAY
@@ -500,28 +501,22 @@ sync_array_cell_print(
 	if (type == SYNC_MUTEX) {
 		WaitMutex*	mutex = cell->latch.mutex;
 		const WaitMutex::MutexPolicy&	policy = mutex->policy();
-#ifdef UNIV_DEBUG
 		const char*	name = policy.get_enter_filename();
 		if (name == NULL) {
 			/* The mutex might have been released. */
 			name = "NULL";
 		}
-#endif /* UNIV_DEBUG */
 
 		if (mutex) {
 		fprintf(file,
 			"Mutex at %p, %s, lock var %x\n"
-#ifdef UNIV_DEBUG
 			"Last time reserved in file %s line %u"
-#endif /* UNIV_DEBUG */
 			"\n",
 			(void*) mutex,
 			policy.to_string().c_str(),
 			mutex->state()
-#ifdef UNIV_DEBUG
 			,name,
 			policy.get_enter_line()
-#endif /* UNIV_DEBUG */
 			);
 		}
 	} else if (type == SYNC_BUF_BLOCK) {
@@ -529,27 +524,21 @@ sync_array_cell_print(
 
 		const BlockWaitMutex::MutexPolicy&	policy =
 			mutex->policy();
-#ifdef UNIV_DEBUG
 		const char*	name = policy.get_enter_filename();
 		if (name == NULL) {
 			/* The mutex might have been released. */
 			name = "NULL";
 		}
-#endif /* UNIV_DEBUG */
 
 		fprintf(file,
 			"Mutex at %p, %s, lock var %lu\n"
-#ifdef UNIV_DEBUG
 			"Last time reserved in file %s line %lu"
-#endif /* UNIV_DEBUG */
 			"\n",
 			(void*) mutex,
 			policy.to_string().c_str(),
 			(ulong) mutex->state()
-#ifdef UNIV_DEBUG
 			,name,
 			(ulong) policy.get_enter_line()
-#endif /* UNIV_DEBUG */
 		       );
 	} else if (type == RW_LOCK_X
 		   || type == RW_LOCK_X_WAIT
@@ -1322,10 +1311,7 @@ sync_arr_fill_sys_semphore_waits_table(
 		if (sync_arr_get_item(i, &cell)) {
 			WaitMutex* mutex;
 			type = cell->request_type;
-			/* JAN: FIXME
-			OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_THREAD_ID],
-			(longlong)os_thread_pf(cell->thread)));
-			*/
+			OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_THREAD_ID], (longlong)os_thread_pf(cell->thread_id)));
 			OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_FILE], innobase_basename(cell->file)));
 			OK(fields[SYS_SEMAPHORE_WAITS_LINE]->store(cell->line, true));
 			fields[SYS_SEMAPHORE_WAITS_LINE]->set_notnull();
@@ -1343,14 +1329,15 @@ sync_arr_fill_sys_semphore_waits_table(
 					//OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_HOLDER_FILE], innobase_basename(mutex->file_name)));
 					//OK(fields[SYS_SEMAPHORE_WAITS_HOLDER_LINE]->store(mutex->line, true));
 					//fields[SYS_SEMAPHORE_WAITS_HOLDER_LINE]->set_notnull();
-					//OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_CREATED_FILE], innobase_basename(mutex->cfile_name)));
+					std::string tmp = sync_file_created_get(&mutex->policy());
+					OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_CREATED_FILE], innobase_basename(tmp.c_str())));
 					//OK(fields[SYS_SEMAPHORE_WAITS_CREATED_LINE]->store(mutex->cline, true));
 					//fields[SYS_SEMAPHORE_WAITS_CREATED_LINE]->set_notnull();
 					//OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_WAITERS_FLAG], (longlong)mutex->waiters));
 					//OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_LOCK_WORD], (longlong)mutex->lock_word));
-					//OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_LAST_WRITER_FILE], innobase_basename(mutex->file_name)));
-					//OK(fields[SYS_SEMAPHORE_WAITS_LAST_WRITER_LINE]->store(mutex->line, true));
-					//fields[SYS_SEMAPHORE_WAITS_LAST_WRITER_LINE]->set_notnull();
+					OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_LAST_WRITER_FILE], innobase_basename(mutex->policy().get_enter_filename())));
+					OK(fields[SYS_SEMAPHORE_WAITS_LAST_WRITER_LINE]->store(mutex->policy().get_enter_line(), true));
+					fields[SYS_SEMAPHORE_WAITS_LAST_WRITER_LINE]->set_notnull();
 					//OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_OS_WAIT_COUNT], mutex->count_os_wait));
 				}
 			} else if (type == RW_LOCK_X_WAIT
@@ -1388,10 +1375,10 @@ sync_arr_fill_sys_semphore_waits_table(
 							OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_RESERVATION_MODE], "RW_LOCK_SX"));
 						}
 
-						//OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_HOLDER_THREAD_ID], (longlong)rwlock->thread_id));
-						//OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_HOLDER_FILE], innobase_basename(rwlock->file_name)));
-						//OK(fields[SYS_SEMAPHORE_WAITS_HOLDER_LINE]->store(rwlock->line, true));
-						//fields[SYS_SEMAPHORE_WAITS_HOLDER_LINE]->set_notnull();
+						OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_HOLDER_THREAD_ID], (longlong)os_thread_pf(rwlock->writer_thread)));
+						OK(field_store_string(fields[SYS_SEMAPHORE_WAITS_HOLDER_FILE], innobase_basename(rwlock->last_x_file_name)));
+						OK(fields[SYS_SEMAPHORE_WAITS_HOLDER_LINE]->store(rwlock->last_x_line, true));
+						fields[SYS_SEMAPHORE_WAITS_HOLDER_LINE]->set_notnull();
 						OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_READERS], rw_lock_get_reader_count(rwlock)));
 						OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_WAITERS_FLAG], (longlong)rwlock->waiters));
 						OK(field_store_ulint(fields[SYS_SEMAPHORE_WAITS_LOCK_WORD], (longlong)rwlock->lock_word));
