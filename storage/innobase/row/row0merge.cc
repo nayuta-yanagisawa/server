@@ -513,8 +513,7 @@ row_merge_buf_add(
 	ulint			bucket = 0;
 	doc_id_t		write_doc_id;
 	ulint			n_row_added = 0;
-	VCOL_STORAGE*		vcol_storage= 0;
-	byte*			record;
+	VCOL_STORAGE		vcol_storage;
 	DBUG_ENTER("row_merge_buf_add");
 
 	if (buf->n_tuples >= buf->max_tuples) {
@@ -587,8 +586,11 @@ row_merge_buf_add(
 				dict_index_t*	clust_index
 					= dict_table_get_first_index(new_table);
 
-                                if (!vcol_storage &&
-                                    innobase_allocate_row_for_vcol(trx->mysql_thd, clust_index, v_heap, &my_table, &record, &vcol_storage)) {
+                                if (!vcol_storage.innobase_record &&
+                                    !innobase_allocate_row_for_vcol(
+						trx->mysql_thd, clust_index,
+						v_heap, &my_table,
+						&vcol_storage)) {
 					*err = DB_OUT_OF_MEMORY;
 					goto error;
 				}
@@ -596,8 +598,8 @@ row_merge_buf_add(
 				row_field = innobase_get_computed_value(
 					row, v_col, clust_index,
 					v_heap, NULL, ifield, trx->mysql_thd,
-					my_table, record, old_table, NULL,
-					NULL);
+					my_table, vcol_storage.innobase_record, 
+					old_table, NULL, NULL);
 
 				if (row_field == NULL) {
 					*err = DB_COMPUTE_VALUE_FAILED;
@@ -840,13 +842,13 @@ row_merge_buf_add(
 	}
 
 end:
-        if (vcol_storage)
-		innobase_free_row_for_vcol(vcol_storage);
+        if (vcol_storage.innobase_record)
+		innobase_free_row_for_vcol(&vcol_storage);
 	DBUG_RETURN(n_row_added);
 
 error:
-        if (vcol_storage)
-		innobase_free_row_for_vcol(vcol_storage);
+        if (vcol_storage.innobase_record)
+		innobase_free_row_for_vcol(&vcol_storage);
         DBUG_RETURN(0);
 }
 
