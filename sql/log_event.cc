@@ -5483,8 +5483,26 @@ int Query_log_event::do_apply_event(rpl_group_info *rgi,
   thd->clear_error(1);
   current_stmt_is_commit= is_commit();
 
-  DBUG_ASSERT(!current_stmt_is_commit || !rgi->tables_to_lock);
-  rgi->slave_close_thread_tables(thd);
+  if (strcmp("COMMIT", query) == 0 && rgi->tables_to_lock != NULL)
+  {
+    /*
+      Cleaning-up the last statement context:
+      Found a row based event group which didn't modfiy any rows. i.e.
+      BEGIN
+      TABLE_MAP
+      COMMIT
+    */
+    int error;
+    if ((error = rows_event_stmt_cleanup(rgi, thd)))
+    {
+      rli->report(ERROR_LEVEL, error, "Error in cleaning up after an event "
+                  "preceding the commit; the group log file/position: %s %llu",
+                  rli->group_master_log_name,
+                  (ulong) rli->group_master_log_pos);
+    }
+  }
+  else
+    rgi->slave_close_thread_tables(thd);
 
   /*
     Note:   We do not need to execute reset_one_shot_variables() if this
@@ -9926,7 +9944,7 @@ int Create_file_log_event::do_apply_event(rpl_group_info *rgi)
   char *ext;
   int fd = -1;
   IO_CACHE file;
-  Log_event_writer lew(&file, 0);
+  Log_event_writer lew(&file);
   int error = 1;
   Relay_log_info const *rli= rgi->rli;
 

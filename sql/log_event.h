@@ -716,21 +716,6 @@ enum Log_event_type
   ENUM_END_EVENT /* end marker */
 };
 
-
-/*
-  Bit flags for what has been writting to cache. Used to
-  discard logs with table map events but not row events and
-  nothing else important. This is stored by cache.
-*/
-
-enum enum_logged_status
-{
-  LOGGED_TABLE_MAP= 1,
-  LOGGED_ROW_EVENT= 2,
-  LOGGED_NO_DATA=   4,
-  LOGGED_CRITICAL=  8
-};
-
 static inline bool LOG_EVENT_IS_QUERY(enum Log_event_type type)
 {
   return type == QUERY_EVENT || type == QUERY_COMPRESSED_EVENT;
@@ -800,7 +785,6 @@ class THD;
 
 class Format_description_log_event;
 class Relay_log_info;
-class binlog_cache_data;
 
 bool copy_event_cache_to_file_and_reinit(IO_CACHE *cache, FILE *file);
 
@@ -922,7 +906,6 @@ typedef struct st_print_event_info
   This class encapsulates writing of Log_event objects to IO_CACHE.
   Automatically calculates the checksum and encrypts the data, if necessary.
 */
-
 class Log_event_writer
 {
 public:
@@ -934,16 +917,13 @@ public:
   int write_data(const uchar *pos, size_t len);
   int write_footer();
   my_off_t pos() { return my_b_safe_tell(file); }
-  void add_status(enum_logged_status status);
 
-  Log_event_writer(IO_CACHE *file_arg, binlog_cache_data *cache_data_arg,
-                   Binlog_crypt_data *cr= 0)
+Log_event_writer(IO_CACHE *file_arg, Binlog_crypt_data *cr= 0)
   : bytes_written(0), ctx(0),
-    file(file_arg), cache_data(cache_data_arg), crypto(cr) { }
+    file(file_arg), crypto(cr) { }
 
 private:
   IO_CACHE *file;
-  binlog_cache_data *cache_data;
   /**
     Placeholder for event checksum while writing to binlog.
    */
@@ -1411,7 +1391,6 @@ public:
   }
 #endif
   virtual Log_event_type get_type_code() = 0;
-  virtual enum_logged_status logged_status() { return LOGGED_CRITICAL; }
   virtual bool is_valid() const = 0;
   virtual my_off_t get_header_len(my_off_t len) { return len; }
   void set_artificial_event() { flags |= LOG_EVENT_ARTIFICIAL_F; }
@@ -3399,7 +3378,6 @@ public:
                  const Format_description_log_event *description_event);
   ~Gtid_log_event() { }
   Log_event_type get_type_code() { return GTID_EVENT; }
-  enum_logged_status logged_status() { return LOGGED_NO_DATA; }
   int get_data_size()
   {
     return GTID_HEADER_LEN + ((flags2 & FL_GROUP_COMMIT_ID) ? 2 : 0);
@@ -3899,7 +3877,6 @@ public:
 
   virtual int get_data_size();
   virtual Log_event_type get_type_code();
-  enum_logged_status logged_status() { return LOGGED_NO_DATA; }
   virtual bool is_valid() const;
   virtual bool is_part_of_group() { return 1; }
 
@@ -4316,7 +4293,6 @@ public:
   const char *get_db_name() const    { return m_dbnam; }
 
   virtual Log_event_type get_type_code() { return TABLE_MAP_EVENT; }
-  virtual enum_logged_status logged_status() { return LOGGED_TABLE_MAP; }
   virtual bool is_valid() const { return m_memory != NULL; /* we check malloc */ }
   virtual bool is_part_of_group() { return 1; }
 
@@ -4445,7 +4421,6 @@ public:
   void update_flags() { int2store(temp_buf + m_flags_pos, m_flags); }
 
   Log_event_type get_type_code() { return m_type; } /* Specific type (_V1 etc) */
-  enum_logged_status logged_status() { return LOGGED_ROW_EVENT; }
   virtual Log_event_type get_general_type_code() = 0; /* General rows op type, no version */
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
@@ -5202,7 +5177,6 @@ inline int Log_event_writer::write(Log_event *ev)
   ev->writer= this;
   int res= ev->write();
   IF_DBUG(ev->writer= 0,); // writer must be set before every Log_event::write
-  add_status(ev->logged_status());
   return res;
 }
 

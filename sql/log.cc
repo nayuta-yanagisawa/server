@@ -261,8 +261,7 @@ void make_default_log_name(char **out, const char* log_ext, bool once)
 class binlog_cache_data
 {
 public:
-  binlog_cache_data(): m_pending(0), status(0),
-  before_stmt_pos(MY_OFF_T_UNDEF),
+  binlog_cache_data(): m_pending(0), before_stmt_pos(MY_OFF_T_UNDEF),
   incident(FALSE), changes_to_non_trans_temp_table_flag(FALSE),
   saved_max_binlog_cache_size(0), ptr_binlog_cache_use(0),
   ptr_binlog_cache_disk_use(0)
@@ -274,22 +273,9 @@ public:
     close_cached_file(&cache_log);
   }
 
-  /*
-    Return 1 if there is no relevant entries in the cache
-
-    This is:
-    - Cache is empty
-    - There are row or critical (DDL?) events in the cache
-
-    The status test is needed to avoid writing entries with only
-    a table map entry, which would crash in do_apply_event() on the slave
-    as it assumes that there is always a row entry after a table map.
-  */
   bool empty() const
   {
-    return (pending() == NULL &&
-            (my_b_write_tell(&cache_log) == 0 ||
-             ((status & (LOGGED_ROW_EVENT | LOGGED_CRITICAL)) == 0)));
+    return pending() == NULL && my_b_tell(&cache_log) == 0;
   }
 
   Rows_log_event *pending() const
@@ -334,7 +320,6 @@ public:
       my_chsize(cache_log.file, 0, 0, MYF(MY_WME));
 
     changes_to_non_trans_temp_table_flag= FALSE;
-    status= 0;
     incident= FALSE;
     before_stmt_pos= MY_OFF_T_UNDEF;
     DBUG_ASSERT(empty());
@@ -397,11 +382,6 @@ public:
     cache_log.end_of_file= saved_max_binlog_cache_size;
   }
 
-  void add_status(enum_logged_status status_arg)
-  {
-    status|= status_arg;
-  }
-
   /*
     Cache to store data before copying it to the binary log.
   */
@@ -413,13 +393,6 @@ private:
     written.
    */
   Rows_log_event *m_pending;
-
-  /*
-    Bit flags for what has been writting to cache. Used to
-    discard logs without any data changes.
-    see enum_logged_status;
-  */
-  uint32 status;
 
   /*
     Binlog position before the start of the current statement.
@@ -497,13 +470,6 @@ private:
   binlog_cache_data& operator=(const binlog_cache_data& info);
   binlog_cache_data(const binlog_cache_data& info);
 };
-
-
-void Log_event_writer::add_status(enum_logged_status status)
-{
-  if (likely(cache_data))
-    cache_data->add_status(status);
-}
 
 class binlog_cache_mngr {
 public:
@@ -5295,14 +5261,12 @@ end:
   DBUG_RETURN(error);
 }
 
-bool MYSQL_BIN_LOG::write_event(Log_event *ev, binlog_cache_data *cache_data,
-                                IO_CACHE *file)
+bool MYSQL_BIN_LOG::write_event(Log_event *ev, IO_CACHE *file)
 {
-  Log_event_writer writer(file, 0, &crypto);
+  Log_event_writer writer(file, &crypto);
   if (crypto.scheme && file == &log_file)
     writer.ctx= alloca(crypto.ctx_size);
-  if (cache_data)
-    cache_data->add_status(ev->logged_status());
+
   return writer.write(ev);
 }
 
@@ -5668,7 +5632,7 @@ THD::binlog_start_trans_and_stmt()
         (binlog_cache_mngr*) thd_get_ha_data(this, binlog_hton);
       binlog_cache_data *cache_data= cache_mngr->get_binlog_cache_data(1);
       IO_CACHE *file= &cache_data->cache_log;
-      Log_event_writer writer(file, cache_data);
+      Log_event_writer writer(file);
         Gtid_log_event gtid_event(this, this->variables.gtid_seq_no,
                             this->variables.gtid_domain_id,
                             true, LOG_EVENT_SUPPRESS_USE_F,
@@ -5769,11 +5733,13 @@ int THD::binlog_write_table_map(TABLE *table, bool is_transactional,
 
   binlog_cache_mngr *const cache_mngr=
     (binlog_cache_mngr*) thd_get_ha_data(this, binlog_hton);
-  binlog_cache_data *cache_data= (cache_mngr->
-                                  get_binlog_cache_data(is_transactional));
-  IO_CACHE *file= &cache_data->cache_log;
-  Log_event_writer writer(file, cache_data);
 
+  binlog_cache_data *cache_data= (cache_mngr->
+      get_binlog_cache_data(is_transactional));
+
+  IO_CACHE *file=
+    cache_mngr->get_binlog_cache_log(use_trans_cache(this, is_transactional));
+  Log_event_writer writer(file);
   if (with_annotate && *with_annotate)
   {
     Annotate_rows_log_event anno(table->in_use, is_transactional, false);
@@ -5912,7 +5878,7 @@ MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
 
   if (Rows_log_event* pending= cache_data->pending())
   {
-    Log_event_writer writer(&cache_data->cache_log, cache_data);
+    Log_event_writer writer(&cache_data->cache_log);
 
     /*
       Write pending event to the cache.
@@ -6333,8 +6299,8 @@ bool MYSQL_BIN_LOG::write(Log_event *event_info, my_bool *with_annotate)
         goto err;
 
       is_trans_cache= use_trans_cache(thd, using_trans);
+      file= cache_mngr->get_binlog_cache_log(is_trans_cache);
       cache_data= cache_mngr->get_binlog_cache_data(is_trans_cache);
-      file= &cache_data->cache_log;
 
       if (thd->lex->stmt_accessed_non_trans_temp_table())
         cache_data->set_changes_to_non_trans_temp_table();
@@ -6358,19 +6324,21 @@ bool MYSQL_BIN_LOG::write(Log_event *event_info, my_bool *with_annotate)
       Annotate_rows_log_event anno(thd, using_trans, direct);
       /* Annotate event should be written not more than once */
       *with_annotate= 0;
-      if (write_event(&anno, cache_data, file))
+      if (write_event(&anno, file))
         goto err;
     }
 
+    if (thd)
     {
       if (!thd->is_current_stmt_binlog_format_row())
       {
+
         if (thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt)
         {
           Intvar_log_event e(thd,(uchar) LAST_INSERT_ID_EVENT,
                              thd->first_successful_insert_id_in_prev_stmt_for_binlog,
                              using_trans, direct);
-          if (write_event(&e, cache_data, file))
+          if (write_event(&e, file))
             goto err;
         }
         if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() > 0)
@@ -6381,14 +6349,14 @@ bool MYSQL_BIN_LOG::write(Log_event *event_info, my_bool *with_annotate)
           Intvar_log_event e(thd, (uchar) INSERT_ID_EVENT,
                              thd->auto_inc_intervals_in_cur_stmt_for_binlog.
                              minimum(), using_trans, direct);
-          if (write_event(&e, cache_data, file))
+          if (write_event(&e, file))
             goto err;
         }
         if (thd->rand_used)
         {
           Rand_log_event e(thd,thd->rand_saved_seed1,thd->rand_saved_seed2,
                            using_trans, direct);
-          if (write_event(&e, cache_data, file))
+          if (write_event(&e, file))
             goto err;
         }
         if (thd->user_var_events.elements)
@@ -6412,7 +6380,7 @@ bool MYSQL_BIN_LOG::write(Log_event *event_info, my_bool *with_annotate)
                                  flags,
                                  using_trans,
                                  direct);
-            if (write_event(&e, cache_data, file))
+            if (write_event(&e, file))
               goto err;
           }
         }
@@ -6422,7 +6390,7 @@ bool MYSQL_BIN_LOG::write(Log_event *event_info, my_bool *with_annotate)
     /*
       Write the event.
     */
-    if (write_event(event_info, cache_data, file) ||
+    if (write_event(event_info, file) ||
         DBUG_EVALUATE_IF("injecting_fault_writing", 1, 0))
       goto err;
 
@@ -6942,8 +6910,7 @@ public:
 
   CacheWriter(THD *thd_arg, IO_CACHE *file_arg, bool do_checksum,
               Binlog_crypt_data *cr)
-    : Log_event_writer(file_arg, 0, cr), remains(0), thd(thd_arg),
-      first(true)
+    : Log_event_writer(file_arg, cr), remains(0), thd(thd_arg), first(true)
   { checksum_len= do_checksum ? BINLOG_CHECKSUM_LEN : 0; }
 
   ~CacheWriter()
@@ -6951,7 +6918,6 @@ public:
 
   int write(uchar* pos, size_t len)
   {
-    DBUG_ENTER("CacheWriter::write");
     if (first)
       write_header(pos, len);
     else
@@ -6960,7 +6926,7 @@ public:
     remains -= len;
     if ((first= !remains))
       write_footer();
-    DBUG_RETURN(0);
+    return 0;
   }
 private:
   THD *thd;

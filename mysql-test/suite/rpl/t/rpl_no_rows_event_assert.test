@@ -1,0 +1,36 @@
+--source include/have_innodb.inc
+--source include/have_binlog_format_mixed_or_row.inc
+--source include/master-slave.inc
+
+#Test case1: Transaction cache has 'Table_Map' followed by 'COMMIT'.
+
+--connection master
+CREATE TABLE t1 (id int) ENGINE=INNODB;
+CREATE TABLE t2 (id int) ENGINE=MYISAM;
+CREATE TRIGGER t2 BEFORE INSERT ON t2 FOR EACH ROW DELETE FROM t1 LIMIT 1;
+INSERT INTO t2 VALUES (1);
+--sync_slave_with_master
+
+# Cleanup
+--connection master
+DROP TABLE t1,t2;
+
+#Test case2: Transaction cache has 'Query', 'Table_Map' followed by 'COMMIT'.
+
+CREATE TABLE t1(f INT) ENGINE=INNODB;
+CREATE TABLE t2(f INT) ENGINE=MYISAM;
+CREATE TABLE t3(id INT AUTO_INCREMENT, i INT, PRIMARY KEY (id)) ENGINE=INNODB;
+CREATE TABLE t4(f INT) ENGINE=MYISAM;
+CREATE TRIGGER trig1 BEFORE INSERT ON t2 FOR EACH ROW INSERT INTO t3(i) SELECT * FROM t4 LIMIT 0;
+
+BEGIN;
+DELETE FROM t1 WHERE f=0;
+INSERT INTO t2 VALUES (2);
+COMMIT;
+--sync_slave_with_master
+
+# Cleanup
+--connection master
+DROP TABLE t1,t2,t3,t4;
+
+--source include/rpl_end.inc
