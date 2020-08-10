@@ -440,9 +440,11 @@ row_vers_impl_x_locked(
 @param[in,out]	row		the cluster index row in dtuple form
 @param[in]	clust_index	clustered index
 @param[in]	index		the secondary index
-@param[in]	heap		heap used to build virtual dtuple. */
+@param[in]	heap		heap used to build virtual dtuple.
+@return		true in case of success
+		false if virtual column computation fails */
 static
-void
+bool
 row_vers_build_clust_v_col(
 	dtuple_t*		row,
 	dict_index_t*		clust_index,
@@ -470,12 +472,18 @@ row_vers_build_clust_v_col(
 			col = reinterpret_cast<const dict_v_col_t*>(
 				ind_field->col);
 
-			innobase_get_computed_value(
+			dfield_t *vfield = innobase_get_computed_value(
 				row, col, clust_index, &vc.heap,
 				heap, NULL, thd, maria_table, record, NULL,
 				NULL, NULL);
+			if (vfield == NULL) {
+				innobase_report_computed_value_failed(row);
+				ut_ad(0);
+				return false;
+			}
 		}
 	}
+	return true;
 }
 
 /** Build latest virtual column data from undo log
@@ -804,8 +812,11 @@ row_vers_build_cur_vrow(
 					  rec, *clust_offsets,
 					  NULL, NULL, NULL, NULL, heap);
 
-		row_vers_build_clust_v_col(
+		bool res = row_vers_build_clust_v_col(
 			row, clust_index, index, heap);
+		if (!res) {
+			return NULL;
+		}
 
 		cur_vrow = dtuple_copy(row, v_heap);
 		dtuple_dup_v_fld(cur_vrow, v_heap);
@@ -913,9 +924,12 @@ row_vers_old_has_index_entry(
 			if (trx_undo_roll_ptr_is_insert(t_roll_ptr)
 			    || dbug_v_purge) {
 
-				row_vers_build_clust_v_col(
+				bool res = row_vers_build_clust_v_col(
 					row, clust_index, index, heap);
 
+				if (!res) {
+					goto unsafe_to_purge;
+				}
 				entry = row_build_index_entry(
 					row, ext, index, heap);
 				if (entry && !dtuple_coll_cmp(ientry, entry)) {
