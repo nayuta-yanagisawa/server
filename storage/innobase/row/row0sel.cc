@@ -156,9 +156,13 @@ fields are compared with collation!
 				must be protected by a page s-latch
 @param[in]	clust_index	clustered index
 @param[in]	thr		query thread
+@oaram[out]	error		DB_COMPUTE_VALUE_FAILED in case of virtual
+				column value computation failure.
+				DB_SUCCESS otherwise
 @return TRUE if the secondary record is equal to the corresponding
 fields in the clustered record, when compared with collation;
-FALSE if not equal or if the clustered record has been marked for deletion */
+FALSE if not equal or if the clustered record has been marked for deletion,
+or in case of error*/
 static
 ibool
 row_sel_sec_rec_is_for_clust_rec(
@@ -166,7 +170,8 @@ row_sel_sec_rec_is_for_clust_rec(
 	dict_index_t*	sec_index,
 	const rec_t*	clust_rec,
 	dict_index_t*	clust_index,
-	que_thr_t*	thr)
+	que_thr_t*	thr,
+	dberr_t*	error)
 {
 	const byte*	sec_field;
 	ulint		sec_len;
@@ -181,6 +186,8 @@ row_sel_sec_rec_is_for_clust_rec(
 
 	rec_offs_init(clust_offsets_);
 	rec_offs_init(sec_offsets_);
+
+	*error = DB_SUCCESS;
 
 	if (rec_get_deleted_flag(clust_rec,
 				 dict_table_is_comp(clust_index->table))) {
@@ -244,6 +251,11 @@ row_sel_sec_rec_is_for_clust_rec(
 					thr->prebuilt->m_mysql_table,
 					record, NULL, NULL, NULL);
 
+			if (vfield == NULL) {
+				innobase_report_computed_value_failed(row);
+				*error = DB_COMPUTE_VALUE_FAILED;
+				return FALSE;
+			}
 			clust_len = vfield->len;
 			clust_field = static_cast<byte*>(vfield->data);
 		} else {
@@ -1017,9 +1029,12 @@ row_sel_get_clust_rec(
 						     plan->table)))
 		    && !row_sel_sec_rec_is_for_clust_rec(rec, plan->index,
 							 clust_rec, index,
-							 thr)) {
-			goto func_exit;
-		}
+							 thr, &err)) {
+			if (err)
+				goto err_exit;
+			else
+				goto func_exit;
+                }
 	}
 
 	/* Fetch the columns needed in test conditions.  The clustered
@@ -3438,8 +3453,10 @@ Row_sel_get_clust_rec_for_mysql::operator()(
 			|| dict_index_is_spatial(sec_index)
 			|| rec_get_deleted_flag(rec, dict_table_is_comp(
 							sec_index->table)))
-		    && !row_sel_sec_rec_is_for_clust_rec(
-			    rec, sec_index, clust_rec, clust_index, thr)) {
+		    && !row_sel_sec_rec_is_for_clust_rec(rec, sec_index,
+					clust_rec, clust_index, thr, &err)) {
+			if (err)
+				goto err_exit;
 			clust_rec = NULL;
 		}
 
