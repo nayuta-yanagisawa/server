@@ -2415,6 +2415,7 @@ void st_select_lex::init_query()
   changed_elements= 0;
   first_natural_join_processing= 1;
   first_cond_optimization= 1;
+  is_service_select= 0;
   parsing_place= NO_MATTER;
   save_parsing_place= NO_MATTER;
   exclude_from_table_unique_test= no_wrap_view_item= FALSE;
@@ -7320,11 +7321,15 @@ my_var *LEX::create_outvar(THD *thd,
 Item *LEX::create_item_func_nextval(THD *thd, Table_ident *table_ident)
 {
   TABLE_LIST *table;
+  // special case of function which can add to service select tables
+  bool save_is_service_select= current_select->is_service_select;
+  current_select->is_service_select= false;
   if (unlikely(!(table= current_select->add_table_to_list(thd, table_ident, 0,
                                                           TL_OPTION_SEQUENCE,
                                                           TL_WRITE_ALLOW_WRITE,
                                                           MDL_SHARED_WRITE))))
     return NULL;
+  current_select->is_service_select= save_is_service_select;
   thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
   return new (thd->mem_root) Item_func_nextval(thd, table);
 }
@@ -7333,11 +7338,15 @@ Item *LEX::create_item_func_nextval(THD *thd, Table_ident *table_ident)
 Item *LEX::create_item_func_lastval(THD *thd, Table_ident *table_ident)
 {
   TABLE_LIST *table;
+  // special case of function which can add to service select tables
+  bool save_is_service_select= current_select->is_service_select;
+  current_select->is_service_select= false;
   if (unlikely(!(table= current_select->add_table_to_list(thd, table_ident, 0,
                                                           TL_OPTION_SEQUENCE,
                                                           TL_READ,
                                                           MDL_SHARED_READ))))
     return NULL;
+  current_select->is_service_select= save_is_service_select;
   thd->lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_SYSTEM_FUNCTION);
   return new (thd->mem_root) Item_func_lastval(thd, table);
 }
@@ -7372,11 +7381,15 @@ Item *LEX::create_item_func_setval(THD *thd, Table_ident *table_ident,
                                    bool is_used)
 {
   TABLE_LIST *table;
+  // special case of function which can add to service select tables
+  bool save_is_service_select= current_select->is_service_select;
+  current_select->is_service_select= false;
   if (unlikely(!(table= current_select->add_table_to_list(thd, table_ident, 0,
                                                           TL_OPTION_SEQUENCE,
                                                           TL_WRITE_ALLOW_WRITE,
                                                           MDL_SHARED_WRITE))))
     return NULL;
+  current_select->is_service_select= save_is_service_select;
   return new (thd->mem_root) Item_func_setval(thd, table, nextval, round,
                                               is_used);
 }
@@ -7600,7 +7613,7 @@ Item *LEX::create_item_ident_sp(THD *thd, Lex_ident_sys_st *name,
       return new (thd->mem_root) Item_func_sqlerrm(thd);
   }
 
-  if (!select_stack_head() &&
+  if (fields_are_impossible() &&
       (current_select->parsing_place != FOR_LOOP_BOUND ||
        spcont->find_cursor(name, &unused_off, false) == NULL))
   {
@@ -8926,11 +8939,12 @@ void st_select_lex::add_statistics(SELECT_LEX_UNIT *unit)
 }
 
 
-bool LEX::main_select_push()
+bool LEX::main_select_push(bool service)
 {
   DBUG_ENTER("LEX::main_select_push");
   current_select_number= 1;
   builtin_select.select_number= 1;
+  builtin_select.is_service_select= service;
   if (push_select(&builtin_select))
     DBUG_RETURN(TRUE);
   DBUG_RETURN(FALSE);
