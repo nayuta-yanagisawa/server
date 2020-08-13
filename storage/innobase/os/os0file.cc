@@ -1800,6 +1800,12 @@ LinuxAIOHandler::resubmit(Slot* slot)
 
 	ut_a(reinterpret_cast<size_t>(iocb->u.c.buf) % OS_FILE_LOG_BLOCK_SIZE
 	     == 0);
+	ut_a(reinterpret_cast<size_t>(iocb->u.c.nbytes)
+		     % OS_FILE_LOG_BLOCK_SIZE
+	     == 0);
+	ut_a(reinterpret_cast<size_t>(iocb->u.c.offset)
+		     % OS_FILE_LOG_BLOCK_SIZE
+	     == 0);
 
 	/* Resubmit an I/O request */
 	int	ret = io_submit(m_array->io_ctx(m_segment), 1, &iocb);
@@ -2170,6 +2176,12 @@ AIO::linux_dispatch(Slot* slot)
 	io_ctx_index = (slot->pos * m_n_segments) / m_slots.size();
 
 	ut_a(reinterpret_cast<size_t>(iocb->u.c.buf) % OS_FILE_LOG_BLOCK_SIZE
+	     == 0);
+	ut_a(reinterpret_cast<size_t>(iocb->u.c.nbytes)
+		     % OS_FILE_LOG_BLOCK_SIZE
+	     == 0);
+	ut_a(reinterpret_cast<size_t>(iocb->u.c.offset)
+		     % OS_FILE_LOG_BLOCK_SIZE
 	     == 0);
 
 	int	ret = io_submit(io_ctx(io_ctx_index), 1, &iocb);
