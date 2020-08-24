@@ -854,7 +854,7 @@ UNIQUE(v)
 INSERT IGNORE INTO t1 (b) VALUES (b'101110001110100'),(b'011101');
 Warnings:
 Warning	1264	Out of range value for column 'v' at row 1
-SELECT pk, b FROM t1 INTO OUTFILE 'load.data';
+SELECT pk, b INTO OUTFILE 'load.data' FROM t1;
 LOAD DATA INFILE 'load.data' REPLACE INTO TABLE t1 (pk, b);
 ERROR 22001: Data too long for column 'v' at row 1
 DROP TABLE t1;
