@@ -5416,49 +5416,105 @@ fil_delete_file(
 	}
 }
 
-/**
-Iterate over all the spaces in the space list and fetch the
-tablespace names. It will return a copy of the name that must be
-freed by the caller using: delete[].
-@return DB_SUCCESS if all OK. */
-dberr_t
-fil_get_space_names(
-/*================*/
-	space_name_list_t&	space_name_list)
-				/*!< in/out: List to append to */
+bool fil_space_is_aux_table(const char *name,
+			    table_id_t *table_id,
+			    index_id_t *index_id)
 {
-	fil_space_t*	space;
-	dberr_t		err = DB_SUCCESS;
+  ulint len= strlen(name);
+  const char* ptr;
+  const char* end= name + len;
 
-	mutex_enter(&fil_system->mutex);
+  ut_ad(len <= MAX_FULL_NAME_LEN);
+  ptr= static_cast<const char*>(memchr(name, '/', len));
 
-	for (space = UT_LIST_GET_FIRST(fil_system->space_list);
-	     space != NULL;
-	     space = UT_LIST_GET_NEXT(space_list, space)) {
+  if (ptr != NULL)
+  {
+    /* We will start the match after the '/' */
+    ++ptr;
+    len = end - ptr;
+  }
 
-		if (space->purpose == FIL_TYPE_TABLESPACE) {
-			ulint	len;
-			char*	name;
+  /* All auxiliary tables are prefixed with "FTS_" and the name
+  length will be at the very least greater than 20 bytes. */
+  if (ptr != NULL && len > 20 && strncmp(ptr, "FTS_", 4) == 0)
+  {
+    const char* fts_common_tables[]= {"BEING_DELETED","BEING_DELETED_CACHE",
+                                      "CONFIG", "DELETED", "DELETED_CACHE",
+                                      NULL};
+    /* Skip the prefix. */
+    ptr+= 4;
+    len-= 4;
 
-			len = ::strlen(space->name);
-			name = UT_NEW_ARRAY_NOKEY(char, len + 1);
+    const char* table_id_ptr = ptr;
+    /* Skip the table id. */
+    ptr= static_cast<const char*>(memchr(ptr, '_', len));
 
-			if (name == 0) {
-				/* Caller to free elements allocated so far. */
-				err = DB_OUT_OF_MEMORY;
-				break;
-			}
+    if (ptr == NULL)
+      return false;
 
-			memcpy(name, space->name, len);
-			name[len] = 0;
+    /* Skip the underscore. */
+    ++ptr;
+    ut_a(end > ptr);
+    len= end - ptr;
 
-			space_name_list.push_back(name);
-		}
-	}
+    /* First search the common table suffix array. */
+    for (ulint i = 0; fts_common_tables[i] != NULL; ++i)
+    {
+      if (strncmp(ptr, fts_common_tables[i], len) == 0)
+        return true;
+    }
 
-	mutex_exit(&fil_system->mutex);
+    /* Could be obsolete common tables. */
+    if (strncmp(ptr, "ADDED", len) == 0
+        || strncmp(ptr, "STOPWORDS", len) == 0)
+      return true;
 
-	return(err);
+    const char* index_id_ptr= ptr;
+    /* Skip the index id. */
+    ptr= static_cast<const char*>(memchr(ptr, '_', len));
+    if (ptr == NULL)
+      return false;
+
+    sscanf(index_id_ptr, "%x", (unsigned int*) index_id);
+    sscanf(table_id_ptr, "%x", (unsigned int*) table_id);
+
+    /* Skip the underscore. */
+    ++ptr;
+    ut_a(end > ptr);
+    len= end - ptr;
+
+    /* Search the FT index specific array. */
+    for (ulint i = 0; i < FTS_NUM_AUX_INDEX; ++i)
+    {
+      if (strncmp(ptr, "INDEX_", len - 1) == 0)
+        return true;
+    }
+
+    /* Other FT index specific table(s). */
+    if (strncmp(ptr, "DOC_ID", len) == 0)
+      return true;
+  }
+
+  return false;
+}
+
+void fil_get_fts_spaces(fts_space_set_t& fts_space_set)
+{
+  mutex_enter(&fil_system->mutex);
+
+  for (fil_space_t *space = UT_LIST_GET_FIRST(fil_system->space_list);
+       space != NULL;
+       space = UT_LIST_GET_NEXT(space_list, space))
+  {
+    index_id_t	index_id = 0;
+    table_id_t	table_id = 0;
+
+    if (space->purpose == FIL_TYPE_TABLESPACE
+        && fil_space_is_aux_table(space->name, &table_id, &index_id))
+      fts_space_set.insert(fts_aux_id(table_id, index_id));
+  }
+
+  mutex_exit(&fil_system->mutex);
 }
 
 /** Generate redo log for swapping two .ibd files

@@ -1774,15 +1774,11 @@ pars_create_table(
 	const dtype_t*	dtype;
 	ulint		n_cols;
 	ulint		flags = 0;
-	ulint		flags2 = DICT_TF2_FTS_AUX_HEX_NAME;
-
-	DBUG_EXECUTE_IF("innodb_test_wrong_fts_aux_table_name",
-			flags2 &= ~DICT_TF2_FTS_AUX_HEX_NAME;);
 
 	n_cols = que_node_list_get_len(column_defs);
 
 	table = dict_mem_table_create(
-		table_sym->name, 0, n_cols, 0, flags, flags2);
+		table_sym->name, 0, n_cols, 0, flags, 0);
 
 	column = column_defs;
 

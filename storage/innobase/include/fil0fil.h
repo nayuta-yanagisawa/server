@@ -1349,17 +1349,43 @@ ulint
 fil_space_get_id_by_name(
 	const char*	tablespace);
 
-/**
-Iterate over all the spaces in the space list and fetch the
-tablespace names. It will return a copy of the name that must be
-freed by the caller using: delete[].
-@return DB_SUCCESS if all OK. */
-dberr_t
-fil_get_space_names(
-/*================*/
-	space_name_list_t&	space_name_list)
-				/*!< in/out: Vector for collecting the names. */
-	MY_ATTRIBUTE((warn_unused_result));
+class fts_aux_id
+{
+public:
+	fts_aux_id(table_id_t t_id, index_id_t i_id):
+	table_id(t_id), index_id(i_id) {}
+
+	table_id_t	table_id;
+	index_id_t	index_id;
+};
+
+struct fts_aux_id_compare {
+	bool operator()(const fts_aux_id lhs,
+			const fts_aux_id rhs) const
+	{
+		if (lhs.table_id == rhs.table_id) {
+			return lhs.index_id > rhs.index_id;
+		}
+
+		return lhs.table_id > rhs.table_id;
+	}
+};
+
+typedef std::set<fts_aux_id, fts_aux_id_compare> fts_space_set_t;
+/** Iterate over all the spaces in the space list and fetch the
+fts parent table id and index id.
+@param[in,out]	fts_space_set	store the list of tablespace id and
+				index id */
+void fil_get_fts_spaces(fts_space_set_t& fts_space_set);
+
+/** Check whether the given name is fts auxiliary table.
+@param[in]	name		tablespace name
+@param[in,out]	table_id	parent table id
+@param[in,out]	index_id	index id of aux table
+@return true if given name is auxilary table name */
+bool fil_space_is_aux_table(const char *name,
+			    table_id_t *table_id,
+			    index_id_t *index_id);
 
 /** Generate redo log for swapping two .ibd files
 @param[in]	old_table	old table
