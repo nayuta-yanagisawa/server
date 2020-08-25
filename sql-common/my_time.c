@@ -1454,23 +1454,115 @@ void set_zero_time(MYSQL_TIME *tm, enum enum_mysql_timestamp_type time_type)
 
 
 /*
-  Helper function for datetime formatting.
-  Format number as string, left-padded with 0.
+  A formatting routine to print a 2 digit zero padded number.
+  It prints 2 digits at a time, which gives a performance improvement.
+  The idea is taken from "class TwoDigitWriter" in MySQL.
 
-  The reason to use own formatting rather than sprintf() is performance - in a
-  datetime benchmark it helped to reduced the datetime formatting overhead 
-  from ~30% down to ~4%.
+  The old implementation printed one digit at a time, using the division
+  and the remainder operators, which appeared to be slow.
+  It's cheaper to have a cached array of 2-digit numbers
+  in their string representation.
+
+  Benchmark results showed a 10% to 23% time reduce for these queries:
+    SELECT BENCHMARK(10*1000*1000,CONCAT(TIME'10:20:30'));
+    SELECT BENCHMARK(10*1000*1000,CONCAT(DATE'2001-01-01'));
+    SELECT BENCHMARK(10*1000*1000,CONCAT(TIMESTAMP'2001-01-01 10:20:30'));
+    SELECT BENCHMARK(10*1000*1000,CONCAT(TIME'10:20:30.123456'));
+    SELECT BENCHMARK(10*1000*1000,CONCAT(TIMESTAMP'2001-01-01 10:20:30.123456'));
+  (depending on the exact data type and fractional precision).
+
+  The array has extra elements for uint8 values 100..255.
+  This is done for safety. If the caller passes a value
+  outside of the expected range 0..99, it will be printed as "XX".
 */
-
-static char* fmt_number(uint val, char *out, uint digits)
+static const char two_digit_numbers[512]=
 {
-  uint i;
-  for(i= 0; i < digits; i++)
+  /* 0..99 */
+  "00010203040506070809"
+  "10111213141516171819"
+  "20212223242526272829"
+  "30313233343536373839"
+  "40414243444546474849"
+  "50515253545556575859"
+  "60616263646566676869"
+  "70717273747576777879"
+  "80818283848586878889"
+  "90919293949596979899"
+  /* 100..199 - safety */
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  /* 200..255 - safety */
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXXXXXXXXXXXX"
+  "XXXXXXXXXX"
+};
+
+
+static inline char* fmt_number2(uint8 val, char *out)
+{
+  const char *src= two_digit_numbers + val * 2;
+  *out++= *src++;
+  *out++= *src++;
+  return out;
+}
+
+
+/*
+  A formatting routine to print a 4 digit zero padded number.
+*/
+static inline char* fmt_number4(uint16 val, char *out)
+{
+  out= fmt_number2((uint8) (val / 100), out);
+  out= fmt_number2((uint8) (val % 100), out);
+  return out;
+}
+
+
+/*
+  A formatting routine to print a 6 digit zero padded number.
+*/
+static inline char* fmt_number6(uint val, char *out)
+{
+  out= fmt_number2((uint8) (val / 10000), out);
+  val%= 10000;
+  out= fmt_number2((uint8) (val / 100),   out);
+  out= fmt_number2((uint8) (val % 100),   out);
+  return out;
+}
+
+
+static char* fmt_usec(uint val, char *out, uint digits)
+{
+  switch (digits)
   {
-    out[digits-i-1]= '0' + val%10;
-    val/=10;
+  case 1:
+    *out++= '0' + (val % 10);
+    return out;
+  case 2:
+    return fmt_number2((uint8) val, out);
+  case 3:
+    *out++= '0' + (val / 100) % 10;
+    return fmt_number2((uint8) (val % 100), out);
+  case 4:
+    return fmt_number4((uint16) val, out);
+  case 5:
+    *out++= '0' + (val / 10000) % 10;
+    return fmt_number4((uint16) (val % 10000), out);
+  case 6:
+    return fmt_number6(val, out);
   }
-  return out + digits;
+  return out;
 }
 
 
@@ -1480,13 +1572,13 @@ static int my_mmssff_to_str(const MYSQL_TIME *ltime, char *to, uint fsp)
   if (fsp == AUTO_SEC_PART_DIGITS)
     fsp= ltime->second_part ? TIME_SECOND_PART_DIGITS : 0;
   DBUG_ASSERT(fsp <= TIME_SECOND_PART_DIGITS);
-  pos= fmt_number(ltime->minute, pos, 2);
+  pos= fmt_number2((uint8) ltime->minute, pos);
   *pos++= ':';
-  pos= fmt_number(ltime->second, pos, 2);
+  pos= fmt_number2((uint8) ltime->second, pos);
   if (fsp)
   {
     *pos++= '.';
-    pos= fmt_number((uint)sec_part_shift(ltime->second_part, fsp), pos, fsp);
+    pos= fmt_usec((uint)sec_part_shift(ltime->second_part, fsp), pos, fsp);
   }
   return (int) (pos - to);
 }
@@ -1506,7 +1598,7 @@ int my_interval_DDhhmmssff_to_str(const MYSQL_TIME *ltime, char *to, uint fsp)
     pos= longlong10_to_str((longlong) hour / 24, pos, 10);
     *pos++= ' ';
   }
-  pos= fmt_number(hour % 24, pos, 2);
+  pos= fmt_number2((uint8) (hour % 24), pos);
   *pos++= ':';
   pos+= my_mmssff_to_str(ltime, pos, fsp);
   *pos= 0;
@@ -1538,7 +1630,7 @@ int my_time_to_str(const MYSQL_TIME *l_time, char *to, uint digits)
     /* Need more than 2 digits for hours in string representation. */
     pos= longlong10_to_str((longlong)hour, pos, 10);
   else
-    pos= fmt_number(hour, pos, 2);
+    pos= fmt_number2((uint8) hour, pos);
 
   *pos++= ':';
   pos+= my_mmssff_to_str(l_time, pos, digits);
@@ -1550,11 +1642,11 @@ int my_time_to_str(const MYSQL_TIME *l_time, char *to, uint digits)
 int my_date_to_str(const MYSQL_TIME *l_time, char *to)
 {
   char *pos=to;
-  pos= fmt_number(l_time->year, pos, 4);
+  pos= fmt_number4((uint16) l_time->year, pos);
   *pos++='-';
-  pos= fmt_number(l_time->month, pos, 2);
+  pos= fmt_number2((uint8) l_time->month, pos);
   *pos++='-';
-  pos= fmt_number(l_time->day, pos, 2);
+  pos= fmt_number2((uint8) l_time->day, pos);
   *pos= 0;
   return (int)(pos - to);
 }
@@ -1563,13 +1655,13 @@ int my_date_to_str(const MYSQL_TIME *l_time, char *to)
 int my_datetime_to_str(const MYSQL_TIME *l_time, char *to, uint digits)
 {
   char *pos= to;
-  pos= fmt_number(l_time->year, pos, 4);
+  pos= fmt_number4((uint16) l_time->year, pos);
   *pos++='-';
-  pos= fmt_number(l_time->month, pos, 2);
+  pos= fmt_number2((uint8) l_time->month, pos);
   *pos++='-';
-  pos= fmt_number(l_time->day, pos, 2);
+  pos= fmt_number2((uint8) l_time->day, pos);
   *pos++=' ';
-  pos= fmt_number(l_time->hour, pos, 2);
+  pos= fmt_number2((uint8) l_time->hour, pos);
   *pos++= ':';
   pos+= my_mmssff_to_str(l_time, pos, digits);
   *pos= 0;
@@ -1625,7 +1717,7 @@ int my_timeval_to_str(const struct timeval *tm, char *to, uint dec)
   if (dec)
   {
     *pos++= '.';
-    pos= fmt_number((uint) sec_part_shift(tm->tv_usec, dec), pos, dec);
+    pos= fmt_usec((uint) sec_part_shift(tm->tv_usec, dec), pos, dec);
   }
   *pos= '\0';
   return (int) (pos - to);
