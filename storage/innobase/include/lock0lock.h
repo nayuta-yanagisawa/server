@@ -736,15 +736,19 @@ void
 lock_unlock_table_autoinc(
 /*======================*/
 	trx_t*	trx);			/*!< in/out: transaction */
-/*********************************************************************//**
-Check whether the transaction has already been rolled back because it
-was selected as a deadlock victim, or if it has to wait then cancel
-the wait lock.
+
+/** Helper function to call low level lock wait handler
+in case we need mutexes i.e. caller does not hold them.
+@param[inout]	trx	transaction handle
 @return DB_DEADLOCK, DB_LOCK_WAIT or DB_SUCCESS */
-dberr_t
-lock_trx_handle_wait(
-/*=================*/
-	trx_t*	trx);	/*!< in/out: trx lock state */
+dberr_t lock_trx_handle_wait_needmutex(trx_t* trx);
+
+/** Helper function to call low level lock wait handler
+in case we need to check was trx chosen as victim.
+@param[inout]	trx	transaction handle
+@return DB_DEADLOCK, DB_LOCK_WAIT or DB_SUCCESS */
+dberr_t lock_trx_handle_wait(trx_t* trx);
+
 /*********************************************************************//**
 Get the number of locks on a table.
 @return number of locks */

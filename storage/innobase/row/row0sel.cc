@@ -5086,9 +5086,10 @@ no_gap_lock:
 
 			/* Check whether it was a deadlock or not, if not
 			a deadlock and the transaction had to wait then
-			release the lock it is waiting on. */
+			release the lock it is waiting on. Here we do
+			not hold lock_sys->mutex or trx mutex. */
 
-			err = lock_trx_handle_wait(trx);
+			err = lock_trx_handle_wait_needmutex(trx);
 
 			switch (err) {
 			case DB_SUCCESS:
