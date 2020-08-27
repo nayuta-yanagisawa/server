@@ -1023,9 +1023,10 @@ row_sel_get_clust_rec(
 		exist in our snapshot. */
 
 		if (old_vers || rec_get_deleted_flag(rec, dict_table_is_comp(
-								plan->table))) {
-			err = row_sel_sec_rec_is_for_clust_rec(rec, plan->index,
-							clust_rec, index, thr);
+							       plan->table))) {
+			err = row_sel_sec_rec_is_for_clust_rec(rec,
+							plan->index, clust_rec,
+							index, thr);
 			if (err != DB_SUCCESS_LOCKED_REC) {
 				goto err_exit;
 			}
