@@ -154,22 +154,21 @@ fields are compared with collation!
 				must be protected by a page s-latch
 @param[in]	clust_index	clustered index
 @param[in]	thr		query thread
-@oaram[out]	error		DB_COMPUTE_VALUE_FAILED in case of virtual
-				column value computation failure.
-				DB_SUCCESS otherwise
-@return TRUE if the secondary record is equal to the corresponding
-fields in the clustered record, when compared with collation;
-FALSE if not equal or if the clustered record has been marked for deletion,
-or in case of error*/
+@retval	DB_COMPUTE_VALUE_FAILED in case of virtual column value computation
+	failure.
+@retval DB_SUCCESS_LOCKED_REC if the secondary record is equal to the
+	corresponding fields in the clustered record, when compared with
+	collation;
+@retval DB_SUCCESS if not equal or if the clustered record has been marked
+	for deletion */
 static
-ibool
+dberr_t
 row_sel_sec_rec_is_for_clust_rec(
 	const rec_t*	sec_rec,
 	dict_index_t*	sec_index,
 	const rec_t*	clust_rec,
 	dict_index_t*	clust_index,
-	que_thr_t*	thr,
-	dberr_t*	error)
+	que_thr_t*	thr)
 {
 	const byte*	sec_field;
 	ulint		sec_len;
@@ -185,8 +184,6 @@ row_sel_sec_rec_is_for_clust_rec(
 	rec_offs_init(clust_offsets_);
 	rec_offs_init(sec_offsets_);
 
-	*error = DB_SUCCESS;
-
 	if (rec_get_deleted_flag(clust_rec,
 				 dict_table_is_comp(clust_index->table))) {
 		/* In delete-marked records, DB_TRX_ID must
@@ -197,7 +194,7 @@ row_sel_sec_rec_is_for_clust_rec(
 		it is not visible in the read view.  Besides,
 		if there are any externally stored columns,
 		some of them may have already been purged. */
-		return(FALSE);
+		return DB_SUCCESS;
 	}
 
 	heap = mem_heap_create(256);
@@ -251,8 +248,7 @@ row_sel_sec_rec_is_for_clust_rec(
 
 			if (vfield == NULL) {
 				innobase_report_computed_value_failed(row);
-				*error = DB_COMPUTE_VALUE_FAILED;
-				return FALSE;
+				return DB_COMPUTE_VALUE_FAILED;
 			}
 			clust_len = vfield->len;
 			clust_field = static_cast<byte*>(vfield->data);
@@ -287,7 +283,7 @@ row_sel_sec_rec_is_for_clust_rec(
 					    sec_field, sec_len,
 					    ifield->prefix_len,
 					    clust_index->table)) {
-					return FALSE;
+					return DB_SUCCESS;
 				}
 
 				continue;
@@ -323,19 +319,19 @@ row_sel_sec_rec_is_for_clust_rec(
 			rtr_read_mbr(sec_field, &sec_mbr);
 
 			if (!MBR_EQUAL_CMP(&sec_mbr, &tmp_mbr)) {
-				return FALSE;
+				return DB_SUCCESS;
 			}
 		} else {
 
 			if (0 != cmp_data_data(col->mtype, col->prtype,
 					       clust_field, len,
 					       sec_field, sec_len)) {
-				return FALSE;
+				return DB_SUCCESS;
 			}
 		}
 	}
 
-	return TRUE;
+	return DB_SUCCESS_LOCKED_REC;
 }
 
 /*********************************************************************//**
@@ -1026,13 +1022,13 @@ row_sel_get_clust_rec(
 		visit through secondary index records that would not really
 		exist in our snapshot. */
 
-		if ((old_vers
-		     || rec_get_deleted_flag(rec, dict_table_is_comp(
-						     plan->table)))
-		    && !row_sel_sec_rec_is_for_clust_rec(rec, plan->index,
-							 clust_rec, index,
-							 thr, &err)) {
-			goto err_exit;
+		if (old_vers || rec_get_deleted_flag(rec, dict_table_is_comp(
+								plan->table))) {
+			err = row_sel_sec_rec_is_for_clust_rec(rec, plan->index,
+							clust_rec, index, thr);
+			if (err != DB_SUCCESS_LOCKED_REC) {
+				goto err_exit;
+			}
 		}
 	}
 
@@ -3576,12 +3572,18 @@ Row_sel_get_clust_rec_for_mysql::operator()(
 			|| trx->isolation_level <= TRX_ISO_READ_UNCOMMITTED
 			|| dict_index_is_spatial(sec_index)
 			|| rec_get_deleted_flag(rec, dict_table_is_comp(
-							sec_index->table)))
-		    && !row_sel_sec_rec_is_for_clust_rec(rec, sec_index,
-					clust_rec, clust_index, thr, &err)) {
-			if (err)
+							sec_index->table)))) {
+			err = row_sel_sec_rec_is_for_clust_rec(rec, sec_index,
+						clust_rec, clust_index, thr);
+			switch (err) {
+			case DB_SUCCESS:
+				clust_rec = NULL;
+				break;
+			case DB_SUCCESS_LOCKED_REC:
+				break;
+			default:
 				goto err_exit;
-			clust_rec = NULL;
+			}
 		}
 
 		err = DB_SUCCESS;
