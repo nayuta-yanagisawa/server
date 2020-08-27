@@ -5564,14 +5564,14 @@ buf_page_create(
 	buf_frame_t*	frame;
 	buf_block_t*	block;
 	buf_block_t*	free_block	= NULL;
-	buf_pool_t*	buf_pool = buf_pool_get(page_id);
+	buf_pool_t*	buf_pool;
 	rw_lock_t*	hash_lock;
 
 	ut_ad(mtr->is_active());
 	ut_ad(page_id.space() != 0 || !page_size.is_compressed());
-
+loop:
+	buf_pool= buf_pool_get(page_id);
 	free_block = buf_LRU_get_free_block(buf_pool);
-
 	buf_pool_mutex_enter(buf_pool);
 
 	hash_lock = buf_page_hash_lock_get(buf_pool, page_id);
@@ -5613,9 +5613,19 @@ buf_page_create(
 		case BUF_BLOCK_ZIP_PAGE:
 		case BUF_BLOCK_ZIP_DIRTY:
 			buf_block_init_low(free_block);
-
 			mutex_enter(&buf_pool->zip_mutex);
+
 			buf_page_mutex_enter(free_block);
+			if (buf_page_get_io_fix(&block->page) != BUF_IO_NONE) {
+				mutex_exit(&buf_pool->zip_mutex);
+				buf_LRU_block_free_non_file_page(free_block);
+				buf_pool_mutex_exit(buf_pool);
+				rw_lock_x_unlock(hash_lock);
+				buf_page_mutex_exit(free_block);
+
+				goto loop;
+			}
+
 			rw_lock_x_lock(&free_block->lock);
 
 			buf_relocate(&block->page, &free_block->page);
