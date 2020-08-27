@@ -1920,6 +1920,34 @@ exit_func:
 	DBUG_RETURN(err);
 }
 
+/** Sets the values of the dtuple fields in ref_entry from the values of
+foreign columns in entry.
+@param[in]	foreign		foreign key constraint
+@param[in]	index		clustered index
+@param[in]	entry		tuple of clustered index
+@param[in]	ref_entry	tuple of foreign columns */
+static void
+row_ins_foreign_index_entry(dict_foreign_t *foreign,
+                            const dict_index_t *index,
+                            const dtuple_t *entry,
+                            dtuple_t *ref_entry)
+{
+  for (ulint i= 0; i < foreign->n_fields; i++)
+  {
+    for (ulint j= 0; j < index->n_fields; j++)
+    {
+      const dict_col_t *col= dict_field_get_col(
+                                dict_index_get_nth_field(index, j));
+      const char *col_name= dict_table_get_col_name(index->table, col->ind);
+      if (0 == innobase_strcasecmp(col_name, foreign->foreign_col_names[i]))
+      {
+	 dfield_copy(&ref_entry->fields[i], &entry->fields[j]);
+	 break;
+      }
+    }
+  }
+}
+
 /***************************************************************//**
 Checks if foreign key constraints fail for an index entry. If index
 is not mentioned in any constraint, this function does nothing,
@@ -1938,9 +1966,11 @@ row_ins_check_foreign_constraints(
 	que_thr_t*	thr)	/*!< in: query thread */
 {
 	dict_foreign_t*	foreign;
-	dberr_t		err;
+	dberr_t		err = DB_SUCCESS;
 	trx_t*		trx;
 	ibool		got_s_lock	= FALSE;
+	mem_heap_t*	heap = NULL;
+	dtuple_t*	ref_tuple;
 
 	DBUG_ASSERT(index->is_primary() == pk);
 
@@ -1957,6 +1987,23 @@ row_ins_check_foreign_constraints(
 
 		if (foreign->foreign_index == index
 		    || (pk && !foreign->foreign_index)) {
+
+			ref_tuple= entry;
+
+			if (!foreign->foreign_index) {
+				/* Change primary key entry to
+				foreign key index entry */
+				if (!heap) {
+					heap = mem_heap_create(1000);
+				}
+				ref_tuple = dtuple_create(
+					heap, foreign->n_fields);
+				dtuple_set_n_fields_cmp(
+					ref_tuple, foreign->n_fields);
+				row_ins_foreign_index_entry(
+					foreign, index, entry, ref_tuple);
+			}
+
 			dict_table_t*	ref_table = NULL;
 			dict_table_t*	referenced_table
 						= foreign->referenced_table;
@@ -1986,7 +2033,7 @@ row_ins_check_foreign_constraints(
 			table from being dropped while the check is running. */
 
 			err = row_ins_check_foreign_constraint(
-				TRUE, foreign, table, entry, thr);
+				TRUE, foreign, table, ref_tuple, thr);
 
 			if (referenced_table) {
 				my_atomic_addlint(
@@ -2002,14 +2049,21 @@ row_ins_check_foreign_constraints(
 				dict_table_close(ref_table, FALSE, FALSE);
 			}
 
-			if (err != DB_SUCCESS) {
+			if (heap) {
+				mem_heap_empty(heap);
+			}
 
-				return(err);
+			if (err != DB_SUCCESS) {
+				goto func_exit;
 			}
 		}
 	}
 
-	return(DB_SUCCESS);
+func_exit:
+	if (heap) {
+		mem_heap_free(heap);
+	}
+	return err;
 }
 
 /***************************************************************//**
