@@ -10265,6 +10265,21 @@ MYSQL_BIN_LOG::do_binlog_recovery(const char *opt_name, bool do_xa_recovery)
   return error;
 }
 
+void MYSQL_BIN_LOG::harvest_bytes_written(Relay_log_info *rli)
+{
+#ifndef DBUG_OFF
+  char buf1[22],buf2[22];
+#endif
+  DBUG_ENTER("harvest_bytes_written");
+  mysql_mutex_lock(&rli->log_space_lock);
+  rli->log_space_total+=bytes_written;
+  DBUG_PRINT("info",("relay_log_space: %s  bytes_written: %s",
+        llstr(rli->log_space_total,buf1),
+        llstr(bytes_written,buf2)));
+  bytes_written=0;
+  mysql_mutex_unlock(&rli->log_space_lock);
+  DBUG_VOID_RETURN;
+}
 
 #ifdef INNODB_COMPATIBILITY_HOOKS
 /**

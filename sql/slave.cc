@@ -2508,7 +2508,7 @@ static void write_ignored_events_info_to_relay_log(THD *thd, Master_info *mi)
     }
     if (likely (rev || glev))
     {
-      rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+      rli->relay_log.harvest_bytes_written(rli);
       if (flush_master_info(mi, TRUE, TRUE))
         sql_print_error("Failed to flush master info file");
     }
@@ -5270,7 +5270,7 @@ static int process_io_create_file(Master_info* mi, Create_file_log_event* cev)
                      "error writing Exec_load event to relay log");
           goto err;
         }
-        mi->rli.relay_log.harvest_bytes_written(&mi->rli.log_space_total);
+        mi->rli.relay_log.harvest_bytes_written(&mi->rli);
         break;
       }
       if (unlikely(cev_not_written))
@@ -5285,7 +5285,7 @@ static int process_io_create_file(Master_info* mi, Create_file_log_event* cev)
           goto err;
         }
         cev_not_written=0;
-        mi->rli.relay_log.harvest_bytes_written(&mi->rli.log_space_total);
+        mi->rli.relay_log.harvest_bytes_written(&mi->rli);
       }
       else
       {
@@ -5299,7 +5299,7 @@ static int process_io_create_file(Master_info* mi, Create_file_log_event* cev)
                      "error writing Append_block event to relay log");
           goto err;
         }
-        mi->rli.relay_log.harvest_bytes_written(&mi->rli.log_space_total) ;
+        mi->rli.relay_log.harvest_bytes_written(&mi->rli) ;
       }
     }
   }
@@ -5489,7 +5489,7 @@ static int queue_binlog_ver_1_event(Master_info *mi, const char *buf,
       mysql_mutex_unlock(&mi->data_lock);
       DBUG_RETURN(1);
     }
-    rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+    rli->relay_log.harvest_bytes_written(rli);
   }
   delete ev;
   mi->master_log_pos+= inc_pos;
@@ -5547,7 +5547,7 @@ static int queue_binlog_ver_3_event(Master_info *mi, const char *buf,
     mysql_mutex_unlock(&mi->data_lock);
     DBUG_RETURN(1);
   }
-  rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+  rli->relay_log.harvest_bytes_written(rli);
   delete ev;
   mi->master_log_pos+= inc_pos;
 err:
@@ -5784,9 +5784,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       mysql_mutex_lock(log_lock);
       if (likely(!rli->relay_log.write_event(&fdle) &&
                  !rli->relay_log.flush_and_sync(NULL)))
-      {
-        rli->relay_log.harvest_bytes_written(&rli->log_space_total);
-      }
+        rli->relay_log.harvest_bytes_written(rli);
       else
       {
         error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
@@ -6221,7 +6219,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
           (rli->relay_log.description_event_for_queue))
         error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
       else
-        rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+        rli->relay_log.harvest_bytes_written(rli);
     }
     else if (mi->gtid_reconnect_event_skip_count == 0)
     {
@@ -6234,7 +6232,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       if (rli->relay_log.append_no_lock(&fake_rev))
         error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
       else
-        rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+        rli->relay_log.harvest_bytes_written(rli);
     }
   }
   else
@@ -6302,7 +6300,12 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     {
       mi->master_log_pos+= inc_pos;
       DBUG_PRINT("info", ("master_log_pos: %lu", (ulong) mi->master_log_pos));
-      rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+      fprintf(stderr,"------12 Harvest address:%p space:%llu\n",
+      &rli->log_space_total, rli->log_space_total);
+
+      rli->relay_log.harvest_bytes_written(rli);
+      fprintf(stderr,"------12 After Harvest address:%p space:%llu\n",
+      &rli->log_space_total, rli->log_space_total);
     }
     else
     {
@@ -6382,7 +6385,11 @@ void end_relay_log_info(Relay_log_info* rli)
   log_lock= rli->relay_log.get_log_lock();
   mysql_mutex_lock(log_lock);
   rli->relay_log.close(LOG_CLOSE_INDEX | LOG_CLOSE_STOP_EVENT);
-  rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+  fprintf(stderr,"------13 End relay logHarvest address:%p space:%llu\n",
+      &rli->log_space_total, rli->log_space_total);
+  rli->relay_log.harvest_bytes_written(rli);
+  fprintf(stderr,"------13 End relay logHarvest address:%p space:%llu\n",
+      &rli->log_space_total, rli->log_space_total);
   mysql_mutex_unlock(log_lock);
   /*
     Delete the slave's temporary tables from memory.
@@ -7318,7 +7325,9 @@ int rotate_relay_log(Master_info* mi)
     Note that it needs to be protected by mi->data_lock.
   */
   mysql_mutex_assert_owner(&mi->data_lock);
-  rli->relay_log.harvest_bytes_written(&rli->log_space_total);
+
+  rli->relay_log.harvest_bytes_written(rli);
+
 end:
   DBUG_RETURN(error);
 }

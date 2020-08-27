@@ -467,7 +467,9 @@ static inline int add_relay_log(Relay_log_info* rli,LOG_INFO* linfo)
                     linfo->log_file_name);
     DBUG_RETURN(1);
   }
+  mysql_mutex_lock(&rli->log_space_lock);
   rli->log_space_total += s.st_size;
+  mysql_mutex_unlock(&rli->log_space_lock);
   DBUG_PRINT("info",("log_space_total: %llu", rli->log_space_total));
   DBUG_RETURN(0);
 }
@@ -477,7 +479,9 @@ static int count_relay_log_space(Relay_log_info* rli)
 {
   LOG_INFO linfo;
   DBUG_ENTER("count_relay_log_space");
+  mysql_mutex_lock(&rli->log_space_lock);
   rli->log_space_total= 0;
+  mysql_mutex_unlock(&rli->log_space_lock);
   if (rli->relay_log.find_log_pos(&linfo, NullS, 1))
   {
     sql_print_error("Could not find first log while counting relay log space");
