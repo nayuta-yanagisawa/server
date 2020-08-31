@@ -129,9 +129,6 @@ mysql_real_connect(MYSQL *mysql,const char *host, const char *user,
   if (!db || !db[0])
     db=mysql->options.db;
 
-  if (!user || !user[0])
-    user=mysql->options.user;
-
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   if (!passwd)
   {
@@ -143,20 +140,22 @@ mysql_real_connect(MYSQL *mysql,const char *host, const char *user,
   }
   mysql->passwd= passwd ? my_strdup(passwd,MYF(0)) : NULL;
 #endif /*!NO_EMBEDDED_ACCESS_CHECKS*/
+
   if (!user || !user[0])
   {
-    read_user_name(name_buff);
-    if (name_buff[0])
-      user= name_buff;
+    user=mysql->options.user;
+    if (!user)
+    {
+      read_user_name(name_buff);
+      if (name_buff[0])
+        user= name_buff;
+    }
   }
-
-  if (!user)
-    user= "";
-   /* 
-      We need to alloc some space for mysql->info but don't want to
-      put extra 'my_free's in mysql_close.
-      So we alloc it with the 'user' string to be freed at once
-   */
+  /*
+     We need to alloc some space for mysql->info but don't want to
+     put extra 'my_free's in mysql_close.
+     So we alloc it with the 'user' string to be freed at once
+  */
   mysql->user= my_strdup(PSI_NOT_INSTRUMENTED, user, MYF(0));
 
   port=0;
