@@ -50,6 +50,7 @@ static ulong opt_connect_timeout, opt_shutdown_timeout;
 static char * unix_port=0;
 static char *opt_plugin_dir= 0, *opt_default_auth= 0;
 static bool sql_log_bin_off= false;
+static bool wsrep_on_off = false;
 
 static uint opt_protocol=0;
 static myf error_flags; /* flags to pass to my_printf_error, like ME_BELL */
@@ -599,16 +600,30 @@ static my_bool sql_connect(MYSQL *mysql, uint wait)
 
 static int maybe_disable_binlog(MYSQL *mysql)
 {
-  if (opt_local && !sql_log_bin_off)
+  if (opt_local)
   {
-    if (mysql_query(mysql,  "set local sql_log_bin=0"))
+    if (!sql_log_bin_off)
     {
-      my_printf_error(0, "SET LOCAL SQL_LOG_BIN=0 failed; error: '%-.200s'",
-                      error_flags, mysql_error(mysql));
-      return -1;
+        if (mysql_query(mysql,  "set local sql_log_bin=0"))
+        {
+          my_printf_error(0, "SET LOCAL SQL_LOG_BIN=0 failed; error: '%-.200s'",
+                          error_flags, mysql_error(mysql));
+          return -1;
+        }
     }
+    sql_log_bin_off = true;
+
+    if (!wsrep_on_off)
+    {
+        if (mysql_query(mysql,  "set local wsrep_on=OFF"))
+        {
+          my_printf_error(0, "SET LOCAL WSREP_ON=OFF failed; error: '%-.200s'",
+                          error_flags, mysql_error(mysql));
+          return -1;
+        }
+    }
+    wsrep_on_off = true;
   }
-  sql_log_bin_off= true;
   return 0;
 }
 
