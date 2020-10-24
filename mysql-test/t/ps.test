@@ -4903,5 +4903,23 @@ EXECUTE IMMEDIATE 'SHOW DATABASES WHERE ?' USING DEFAULT;
 EXECUTE IMMEDIATE 'SHOW DATABASES WHERE ?' USING 0;
 
 --echo #
+--echo # MDEV-7600 Wrong result (missing rows) on 2nd execution of PS with ANY ( SQ )
+--echo #
+CREATE TABLE t1 (a INT) ENGINE=MyISAM;
+INSERT INTO t1 VALUES (1),(2);
+
+CREATE TABLE t2 (b INT) ENGINE=MyISAM;
+INSERT INTO t2 VALUES (1),(2);
+
+CREATE TABLE t3 (c INT) ENGINE=MyISAM;
+INSERT INTO t3 VALUES (2),(5);
+
+prepare stmt from "SELECT * FROM t1 INNER JOIN t2 ON (b = a) WHERE 3 > ANY ( SELECT c FROM t3 )";
+execute stmt;
+execute stmt;
+
+drop table t1, t2, t3;
+
+--echo #
 --echo # End of 10.2 tests
 --echo #
