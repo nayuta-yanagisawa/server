@@ -14,4 +14,10 @@ select * from t1;
 a	b	s	e
 1	updated	2019-10-01	2020-01-01
 1	new	2019-01-01	2019-03-01
+insert into t1 (b, s, e) values ('next','2019-01-01','2020-01-01');
+select * from t1;
+a	b	s	e
+1	updated	2019-10-01	2020-01-01
+1	new	2019-01-01	2019-03-01
+2	next	2019-01-01	2020-01-01
 drop table t1;
