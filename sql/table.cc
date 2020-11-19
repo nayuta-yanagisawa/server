@@ -8477,14 +8477,16 @@ int TABLE::update_default_fields(bool ignore_errors)
 
 int TABLE::update_generated_fields()
 {
+  DBUG_ENTER("TABLE::update_generated_fields");
+
   int res= 0;
-  if (found_next_number_field)
-  {
-    next_number_field= found_next_number_field;
-    res= found_next_number_field->set_default();
-    if (likely(!res))
-      res= file->update_auto_increment();
-  }
+  // if (found_next_number_field)
+  // {
+  //   next_number_field= found_next_number_field;
+  //   res= found_next_number_field->set_default();
+  //   if (likely(!res))
+  //     res= file->update_auto_increment();
+  // }
 
   if (likely(!res) && vfield)
     res= update_virtual_fields(file, VCOL_UPDATE_FOR_WRITE);
@@ -8492,11 +8494,13 @@ int TABLE::update_generated_fields()
     vers_update_fields();
   if (likely(!res))
     res= verify_constraints(false) == VIEW_CHECK_ERROR;
-  return res;
+  DBUG_RETURN(res);
 }
 
 int TABLE::period_make_insert(Item *src, Field *dst)
 {
+  DBUG_ENTER("TABLE::period_make_insert");
+
   THD *thd= in_use;
 
   file->store_auto_increment();
@@ -8520,13 +8524,15 @@ int TABLE::period_make_insert(Item *src, Field *dst)
   restore_record(this, record[1]);
   if (res)
     file->restore_auto_increment();
-  return res;
+  DBUG_RETURN(res);
 }
 
 int TABLE::insert_portion_of_time(THD *thd,
                                   const vers_select_conds_t &period_conds,
                                   ha_rows *rows_inserted)
 {
+  DBUG_ENTER("TABLE::insert_portion_of_time");
+
   bool lcond= period_conds.field_start->val_datetime_packed(thd)
               < period_conds.start.item->val_datetime_packed(thd);
   bool rcond= period_conds.field_end->val_datetime_packed(thd)
@@ -8548,7 +8554,7 @@ int TABLE::insert_portion_of_time(THD *thd,
       ++*rows_inserted;
   }
 
-  return res;
+  DBUG_RETURN(res);
 }
 
 void TABLE::evaluate_update_default_function()
