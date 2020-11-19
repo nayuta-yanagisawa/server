@@ -1,0 +1,12 @@
+--echo #
+--echo # MDEV-22414 UPDATE or DELETE FOR PORTION OF increments the value of
+--echo # auto-increment column instead of copying the old one
+--echo #
+create table t1 (a int auto_increment, b char(16), s date, e date, period for se(s,e), primary key(a,s));
+insert into t1 values (1,'new','2019-01-01','2020-01-01');
+update t1 for portion of se from '2019-07-01' to '2020-07-01' set b = 'updated' where a = 1;
+select * from t1;
+delete from t1 for portion of se from '2019-09-01' to '2019-10-01' where a = 1;
+select * from t1;
+
+drop table t1;
