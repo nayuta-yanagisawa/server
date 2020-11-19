@@ -8503,7 +8503,7 @@ int TABLE::period_make_insert(Item *src, Field *dst)
 
   THD *thd= in_use;
 
-  file->store_auto_increment();
+  // file->store_auto_increment();
   store_record(this, record[1]);
   int res= src->save_in_field(dst, true);
 
@@ -8522,8 +8522,8 @@ int TABLE::period_make_insert(Item *src, Field *dst)
                                     TRG_ACTION_AFTER, true);
 
   restore_record(this, record[1]);
-  if (res)
-    file->restore_auto_increment();
+  // if (res)
+  //   file->restore_auto_increment();
   DBUG_RETURN(res);
 }
 
