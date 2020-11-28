@@ -770,6 +770,7 @@ public:
 
   bool marked_for_read() const;
   bool marked_for_write_or_computed() const;
+  bool marked_for_write_or_computed(uchar *ptr_arg) const;
 
   /**
      Used by System Versioning.

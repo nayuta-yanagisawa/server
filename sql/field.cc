@@ -75,13 +75,17 @@ bool Field::marked_for_read() const
 
 bool Field::marked_for_write_or_computed() const
 {
+  return marked_for_write_or_computed(ptr);
+}
+
+bool Field::marked_for_write_or_computed(uchar *ptr_arg) const
+{
   return (!table ||
           (!table->write_set ||
            bitmap_is_set(table->write_set, field_index) ||
-           (!(ptr >= table->record[0] &&
-              ptr < table->record[0] + table->s->reclength))));
+           (!(ptr_arg >= table->record[0] &&
+              ptr_arg < table->record[0] + table->s->reclength))));
 }
-
 
 #define FLAGSTR(S,F) ((S) & (F) ? #F " " : "")
 
@@ -3835,27 +3839,37 @@ int Field_tiny::store(double nr)
 }
 
 
+/*
+  TODO: Remove this function when the following non-virtual function is defined in Field class
+  double Field::store(longlong nr, bool unsigned_val) const { return store_to_ptr(ptr, nr, unsigned_val); }
+*/
 int Field_tiny::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_tiny::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
 
   if (unsigned_flag)
   {
     if (nr < 0 && !unsigned_val)
     {
-      *ptr= 0;
+      *ptr_arg= 0;
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else if ((ulonglong) nr > (ulonglong) 255)
     {
-      *ptr= (char) 255;
+      *ptr_arg= (char) 255;
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else
-      *ptr=(char) nr;
+      *ptr_arg=(char) nr;
   }
   else
   {
@@ -3863,26 +3877,20 @@ int Field_tiny::store(longlong nr, bool unsigned_val)
       nr= 256;                                    // Generate overflow
     if (nr < -128)
     {
-      *ptr= (char) -128;
+      *ptr_arg= (char) -128;
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else if (nr > 127)
     {
-      *ptr=127;
+      *ptr_arg=127;
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else
-      *ptr=(char) nr;
+      *ptr_arg=(char) nr;
   }
   return error;
-}
-
-
-int Field_tiny::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
@@ -4002,9 +4010,19 @@ int Field_short::store(double nr)
 }
 
 
+/*
+  TODO: Remove this function when the following non-virtual function is defined in Field class
+  double Field::store(longlong nr, bool unsigned_val) const { return store_to_ptr(ptr, nr, unsigned_val); }
+*/
 int Field_short::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_short::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
   int16 res;
 
@@ -4047,12 +4065,6 @@ int Field_short::store(longlong nr, bool unsigned_val)
   }
   int2store(ptr,res);
   return error;
-}
-
-
-int Field_short::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
@@ -4178,28 +4190,38 @@ int Field_medium::store(double nr)
 }
 
 
+/*
+  TODO: Remove this function when the following non-virtual function is defined in Field class
+  double Field::store(longlong nr, bool unsigned_val) const { return store_to_ptr(ptr, nr, unsigned_val); }
+*/
 int Field_medium::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_medium::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
 
   if (unsigned_flag)
   {
     if (nr < 0 && !unsigned_val)
     {
-      int3store(ptr,0);
+      int3store(ptr_arg,0);
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else if ((ulonglong) nr >= (ulonglong) (long) (1L << 24))
     {
       long tmp= (long) (1L << 24)-1L;
-      int3store(ptr,tmp);
+      int3store(ptr_arg,tmp);
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else
-      int3store(ptr,(uint32) nr);
+      int3store(ptr_arg,(uint32) nr);
   }
   else
   {
@@ -4209,27 +4231,21 @@ int Field_medium::store(longlong nr, bool unsigned_val)
     if (nr < (longlong) INT_MIN24)
     {
       long tmp= (long) INT_MIN24;
-      int3store(ptr,tmp);
+      int3store(ptr_arg,tmp);
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else if (nr > (longlong) INT_MAX24)
     {
       long tmp=(long) INT_MAX24;
-      int3store(ptr,tmp);
+      int3store(ptr_arg,tmp);
       set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
       error= 1;
     }
     else
-      int3store(ptr,(long) nr);
+      int3store(ptr_arg,(long) nr);
   }
   return error;
-}
-
-
-int Field_medium::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
@@ -4376,9 +4392,19 @@ int Field_long::store(double nr)
 }
 
 
+/*
+  TODO: Remove this function when the following non-virtual function is defined in Field class
+  double Field::store(longlong nr, bool unsigned_val) const { return store_to_ptr(ptr, nr, unsigned_val); }
+*/
 int Field_long::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_long::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
   int32 res;
 
@@ -4417,14 +4443,8 @@ int Field_long::store(longlong nr, bool unsigned_val)
   if (unlikely(error))
     set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
 
-  int4store(ptr,res);
+  int4store(ptr_arg,res);
   return error;
-}
-
-
-int Field_long::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
@@ -4528,9 +4548,19 @@ int Field_longlong::store(double nr)
 }
 
 
+/*
+  TODO: Remove this function when the following non-virtual function is defined in Field class
+  double Field::store(longlong nr, bool unsigned_val) const { return store_to_ptr(ptr, nr, unsigned_val); }
+*/
 int Field_longlong::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_longlong::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
 
   if (unlikely(nr < 0))                         // Only possible error
@@ -4547,14 +4577,8 @@ int Field_longlong::store(longlong nr, bool unsigned_val)
     }
   }
 
-  int8store(ptr,nr);
+  int8store(ptr_arg,nr);
   return error;
-}
-
-
-int Field_longlong::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
@@ -6517,12 +6541,22 @@ int Field_year::store(double nr)
 }
 
 
+/*
+  TODO: Remove this function when the following non-virtual function is defined in Field class
+  double Field::store(longlong nr, bool unsigned_val) const { return store_to_ptr(ptr, nr, unsigned_val); }
+*/
 int Field_year::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_year::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   if (nr < 0 || (nr >= 100 && nr <= 1900) || nr > 2155)
   {
-    *ptr= 0;
+    *ptr_arg= 0;
     set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
     return 1;
   }
@@ -6533,14 +6567,8 @@ int Field_year::store(longlong nr, bool unsigned_val)
     else if (nr > 1900)
       nr-= 1900;
   }
-  *ptr= (char) (uchar) nr;
+  *ptr_arg= (char) (uchar) nr;
   return 0;
-}
-
-
-int Field_year::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
