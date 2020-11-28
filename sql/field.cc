@@ -3147,6 +3147,12 @@ int Field_decimal::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_decimal::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 double Field_decimal::val_real(void)
 {
   DBUG_ASSERT(marked_for_read());
@@ -3540,6 +3546,12 @@ int Field_new_decimal::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_new_decimal::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 int Field_new_decimal::store_decimal(const my_decimal *decimal_value)
 {
   DBUG_ASSERT(marked_for_write_or_computed());
@@ -3868,6 +3880,12 @@ int Field_tiny::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_tiny::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 double Field_tiny::val_real(void)
 {
   DBUG_ASSERT(marked_for_read());
@@ -4029,6 +4047,12 @@ int Field_short::store(longlong nr, bool unsigned_val)
   }
   int2store(ptr,res);
   return error;
+}
+
+
+int Field_short::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -4200,6 +4224,12 @@ int Field_medium::store(longlong nr, bool unsigned_val)
       int3store(ptr,(long) nr);
   }
   return error;
+}
+
+
+int Field_medium::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -4392,6 +4422,12 @@ int Field_long::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_long::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 double Field_long::val_real(void)
 {
   DBUG_ASSERT(marked_for_read());
@@ -4513,6 +4549,12 @@ int Field_longlong::store(longlong nr, bool unsigned_val)
 
   int8store(ptr,nr);
   return error;
+}
+
+
+int Field_longlong::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -4664,6 +4706,12 @@ int Field_float::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_float::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 double Field_float::val_real(void)
 {
   DBUG_ASSERT(marked_for_read());
@@ -4808,6 +4856,12 @@ int Field_double::store(longlong nr, bool unsigned_val)
 {
   return Field_double::store(unsigned_val ? ulonglong2double((ulonglong) nr) :
                              (double) nr);
+}
+
+
+int Field_double::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 /*
@@ -5281,6 +5335,12 @@ int Field_timestamp::store(longlong nr, bool unsigned_val)
   THD *thd= get_thd();
   Datetime dt(&error, tmp, Timestamp::DatetimeOptions(thd));
   return store_TIME_with_warning(thd, &dt, &str, error);
+}
+
+
+int Field_timestamp::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -5818,6 +5878,13 @@ int Field_datetime::store(longlong nr, bool unsigned_val)
   return store_TIME_with_warning(&dt, &str, error);
 }
 
+
+int Field_datetime::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 int Field_datetime::store_time_dec(const MYSQL_TIME *ltime, uint dec)
 {
   int error;
@@ -6007,6 +6074,12 @@ int Field_time::store(longlong nr, bool unsigned_val)
   */
   Time tm(thd, &was_cut, tmp, Time::Options(thd), decimals());
   return store_TIME_with_warning(&tm, &str, was_cut);
+}
+
+
+int Field_time::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -6465,6 +6538,12 @@ int Field_year::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_year::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 int Field_year::store_time_dec(const MYSQL_TIME *ltime, uint dec_arg)
 {
   ErrConvTime str(ltime);
@@ -6582,6 +6661,11 @@ int Field_date_common::store(longlong nr, bool unsigned_val)
   THD *thd= get_thd();
   Datetime dt(&error, tmp, Date::Options(thd));
   return store_TIME_with_warning(&dt, &str, error);
+}
+
+int Field_date_common::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 int Field_date_common::store_time_dec(const MYSQL_TIME *ltime, uint dec)
@@ -7288,6 +7372,12 @@ int Field_str::store(longlong nr, bool unsigned_val)
                                                       (unsigned_val ? 10: -10),
                                                       nr);
   return store(buff, length, field_charset());
+}
+
+
+int Field_str::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -9188,6 +9278,12 @@ int Field_enum::store(longlong nr, bool unsigned_val)
 }
 
 
+int Field_enum::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
+
+
 double Field_enum::val_real(void)
 {
   return (double) Field_enum::val_int();
@@ -9360,6 +9456,12 @@ int Field_set::store(longlong nr, bool unsigned_val)
   }
   store_type((ulonglong) nr);
   return error;
+}
+
+
+int Field_set::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 
@@ -9814,6 +9916,12 @@ int Field_bit::store(longlong nr, bool unsigned_val)
 
   mi_int8store(buf, nr);
   return store(buf, 8, NULL);
+}
+
+
+int Field_bit::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
 }
 
 

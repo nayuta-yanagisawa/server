@@ -819,6 +819,11 @@ public:
             ErrConvInteger(Longlong_hybrid(nr, unsigned_flag)));
   }
 
+  int store_to_ptr(uchar *to_prt, longlong nr, bool unsigned_flag) override
+  {
+    return 0; /* TODO */
+  }
+
   int store(double nr) override
   {
     DBUG_ASSERT(marked_for_write_or_computed());

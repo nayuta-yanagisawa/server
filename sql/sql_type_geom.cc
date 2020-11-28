@@ -823,6 +823,10 @@ int Field_geom::store(longlong nr, bool unsigned_val)
   return -1;
 }
 
+int Field_geom::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  return 0; /* TODO */
+}
 
 int Field_geom::store_decimal(const my_decimal *)
 {

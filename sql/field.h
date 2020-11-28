@@ -941,6 +941,7 @@ public:
   virtual int  store_hex_hybrid(const char *str, size_t length);
   virtual int  store(double nr)=0;
   virtual int  store(longlong nr, bool unsigned_val)=0;
+  virtual int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)=0;
   virtual int  store_decimal(const my_decimal *d)=0;
   virtual int  store_time_dec(const MYSQL_TIME *ltime, uint dec);
   virtual int  store_timestamp_dec(const timeval &ts, uint dec);
@@ -2098,6 +2099,7 @@ public:
   }
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_decimal(const my_decimal *) override;
   int  store(const char *to,size_t length,CHARSET_INFO *cs) override=0;
   int  store_hex_hybrid(const char *str, size_t length) override
@@ -2312,6 +2314,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   double val_real() override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
@@ -2376,6 +2379,7 @@ public:
   int  store(const char *to, size_t length, CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_time_dec(const MYSQL_TIME *ltime, uint dec) override;
   int  store_decimal(const my_decimal *) override;
   double val_real() override
@@ -2524,6 +2528,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=0; return 0; }
   double val_real() override;
   longlong val_int() override;
@@ -2587,6 +2592,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=0; return 0; }
   double val_real() override;
   longlong val_int() override;
@@ -2634,6 +2640,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=ptr[2]=0; return 0; }
   double val_real() override;
   longlong val_int() override;
@@ -2686,6 +2693,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=ptr[2]=ptr[3]=0; return 0; }
   double val_real() override;
   longlong val_int() override;
@@ -2743,6 +2751,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int reset() override
   {
     ptr[0]=ptr[1]=ptr[2]=ptr[3]=ptr[4]=ptr[5]=ptr[6]=ptr[7]=0;
@@ -2847,6 +2856,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int reset() override { bzero(ptr,sizeof(float)); return 0; }
   double val_real() override;
   longlong val_int() override;
@@ -2910,6 +2920,7 @@ public:
   int  store(const char *to,size_t length,CHARSET_INFO *charset) override final;
   int  store(double nr) override final;
   int  store(longlong nr, bool unsigned_val) override final;
+  int  store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override final;
   int reset() override final { bzero(ptr,sizeof(double)); return 0; }
   double val_real() override final;
   longlong val_int() override final { return val_int_from_real(false); }
@@ -3162,6 +3173,7 @@ public:
   int  store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_time_dec(const MYSQL_TIME *ltime, uint dec) override;
   int  store_decimal(const my_decimal *) override;
   int  store_timestamp_dec(const timeval &ts, uint dec) override;
@@ -3406,6 +3418,7 @@ public:
   int  store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_time_dec(const MYSQL_TIME *ltime, uint dec) override;
   double val_real() override;
   longlong val_int() override;
@@ -3442,6 +3455,7 @@ public:
   int  store(const char *to, size_t length, CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_time_dec(const MYSQL_TIME *ltime, uint dec) override;
   int  store_decimal(const my_decimal *) override;
 };
@@ -3570,6 +3584,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_decimal(const my_decimal *) override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -3749,6 +3764,7 @@ public:
   int  store(const char *to, size_t length, CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_time_dec(const MYSQL_TIME *ltime, uint dec) override;
   int  store_decimal(const my_decimal *) override;
   int set_time() override;
@@ -4747,6 +4763,7 @@ public:
   int  store(const char *to,size_t length,CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   double val_real() override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
@@ -4820,6 +4837,7 @@ public:
   int  store(double nr) override
   { return Field_set::store((longlong) nr, FALSE); }
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
 
   bool zero_pack() const override { return true; }
   String *val_str(String *, String *) override;
@@ -4898,6 +4916,7 @@ public:
   int store(const char *to, size_t length, CHARSET_INFO *charset) override;
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int store_decimal(const my_decimal *) override;
   double val_real() override;
   longlong val_int() override;

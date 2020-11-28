@@ -402,6 +402,7 @@ public:
   int  store(const char *to, size_t length, CHARSET_INFO *charset) override;
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
+  int store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val) override;
   int  store_decimal(const my_decimal *) override;
   uint size_of() const  override{ return sizeof(*this); }
   /**
