@@ -4773,6 +4773,7 @@ public:
   void sort_string(uchar *buff,uint length) override;
   uint32 pack_length() const override { return (uint32) packlength; }
   void store_type(ulonglong value);
+  void store_type(uchar *ptr_arg, ulonglong value);
   void sql_type(String &str) const override;
   uint size_of() const override { return sizeof *this; }
   uint pack_length_from_metadata(uint field_metadata) const override

@@ -9229,11 +9229,16 @@ enum ha_base_keytype Field_enum::key_type() const
   }
 }
 
+/* TODO: Remove later */
 void Field_enum::store_type(ulonglong value)
 {
   store_lowendian(value, ptr, packlength);
 }
 
+void Field_enum::store_type(uchar *ptr_arg, ulonglong value)
+{
+  store_lowendian(value, ptr_arg, packlength);
+}
 
 /**
   @note
@@ -9469,10 +9474,16 @@ int Field_set::store(const char *from,size_t length,CHARSET_INFO *cs)
   return err;
 }
 
-
+/* TODO: Remove later */
 int Field_set::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_set::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
   ulonglong max_nr;
 
@@ -9487,14 +9498,8 @@ int Field_set::store(longlong nr, bool unsigned_val)
     set_warning(WARN_DATA_TRUNCATED, 1);
     error=1;
   }
-  store_type((ulonglong) nr);
+  store_type(ptr_arg, (ulonglong) nr);
   return error;
-}
-
-
-int Field_set::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
