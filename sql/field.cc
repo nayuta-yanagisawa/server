@@ -2674,8 +2674,14 @@ Field_decimal::reset(void)
 
 void Field_decimal::overflow(bool negative)
 {
+  overflow(ptr, negative);
+  return;
+}
+
+void Field_decimal::overflow(uchar *ptr_arg, bool negative)
+{
   uint len=field_length;
-  uchar *to=ptr, filler= '9';
+  uchar *to=ptr_arg, filler= '9';
 
   set_warning(ER_WARN_DATA_OUT_OF_RANGE, 1);
   if (negative)
@@ -2706,10 +2712,9 @@ void Field_decimal::overflow(bool negative)
   }
   bfill(to, len, filler);
   if (dec)
-    ptr[field_length-dec-1]='.';
+    ptr_arg[field_length-dec-1]='.';
   return;
 }
-
 
 int Field_decimal::store(const char *from_arg, size_t len, CHARSET_INFO *cs)
 {
@@ -3114,10 +3119,16 @@ int Field_decimal::store(double nr)
   }
 }
 
-
+/* TODO: delete later */
 int Field_decimal::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_decimal::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   char buff[22];
   uint length, int_part;
   char fyllchar;
@@ -3125,7 +3136,7 @@ int Field_decimal::store(longlong nr, bool unsigned_val)
 
   if (nr < 0 && unsigned_flag && !unsigned_val)
   {
-    overflow(1);
+    overflow(ptr_arg, 1);
     return 1;
   }
   length= (uint) (longlong10_to_str(nr,buff,unsigned_val ? 10 : -10) - buff);
@@ -3133,12 +3144,12 @@ int Field_decimal::store(longlong nr, bool unsigned_val)
 
   if (length > int_part)
   {
-    overflow(!unsigned_val && nr < 0L);		/* purecov: inspected */
+    overflow(ptr_arg, !unsigned_val && nr < 0L);		/* purecov: inspected */
     return 1;
   }
 
   fyllchar = zerofill ? (char) '0' : (char) ' ';
-  to= ptr;
+  to= ptr_arg;
   for (uint i=int_part-length ; i-- > 0 ;)
     *to++ = fyllchar;
   memcpy(to,buff,length);
@@ -3148,12 +3159,6 @@ int Field_decimal::store(longlong nr, bool unsigned_val)
     bfill(to+length+1,dec,'0');
   }
   return 0;
-}
-
-
-int Field_decimal::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 

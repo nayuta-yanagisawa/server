@@ -2322,6 +2322,7 @@ public:
   int cmp(const uchar *,const uchar *) const override;
   void sort_string(uchar *buff,uint length) override;
   void overflow(bool negative);
+  void overflow(uchar *ptr_arg, bool negative);
   bool zero_pack() const override { return false; }
   void sql_type(String &str) const override;
   uchar *pack(uchar* to, const uchar *from, uint max_length) override
