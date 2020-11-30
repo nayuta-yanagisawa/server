@@ -9298,9 +9298,16 @@ int Field_enum::store(double nr)
 }
 
 
+/* TODO: Remove later */
 int Field_enum::store(longlong nr, bool unsigned_val)
 {
-  DBUG_ASSERT(marked_for_write_or_computed());
+  return store_to_ptr(ptr, nr, unsigned_val);
+}
+
+
+int Field_enum::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
+{
+  DBUG_ASSERT(marked_for_write_or_computed(ptr_arg));
   int error= 0;
   if ((ulonglong) nr > typelib->count || nr == 0)
   {
@@ -9311,14 +9318,8 @@ int Field_enum::store(longlong nr, bool unsigned_val)
       error= 1;
     }
   }
-  store_type((ulonglong) (uint) nr);
+  store_type(ptr_arg, (ulonglong) (uint) nr);
   return error;
-}
-
-
-int Field_enum::store_to_ptr(uchar *ptr_arg, longlong nr, bool unsigned_val)
-{
-  return 0; /* TODO */
 }
 
 
