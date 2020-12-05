@@ -2594,7 +2594,7 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=0; return 0; }
   double val_real() override;
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;

@@ -4050,12 +4050,15 @@ int Field_short::store(longlong nr, bool unsigned_val)
   return error;
 }
 
+double Field_short::val_real(void){
+  return val_real_from_ptr(ptr);
+}
 
-double Field_short::val_real(void)
+double Field_short::val_real_from_ptr(uchar *ptr_arg)
 {
-  DBUG_ASSERT(marked_for_read());
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   short j;
-  j=sint2korr(ptr);
+  j=sint2korr(ptr_arg);
   return unsigned_flag ? (double) (unsigned short) j : (double) j;
 }
 
