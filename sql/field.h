@@ -769,6 +769,7 @@ public:
   { DBUG_ASSERT(0); }
 
   bool marked_for_read() const;
+  bool marked_for_read(uchar *ptr_arg) const;
   bool marked_for_write_or_computed() const;
 
   /**
@@ -2314,7 +2315,7 @@ public:
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
   double val_real() override;
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   int cmp(const uchar *,const uchar *) const override;

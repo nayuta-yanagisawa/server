@@ -60,11 +60,17 @@ const char field_separator=',';
 // Column marked for read or the field set to read out of record[0]
 bool Field::marked_for_read() const
 {
+  return marked_for_read(ptr);
+}
+
+// Column marked for read or the field set to read out of record[0]
+bool Field::marked_for_read(uchar *ptr_arg) const
+{
   return !table ||
          (!table->read_set ||
           bitmap_is_set(table->read_set, field_index) ||
-          (!(ptr >= table->record[0] &&
-             ptr < table->record[0] + table->s->reclength)));
+          (!(ptr_arg >= table->record[0] &&
+             ptr_arg < table->record[0] + table->s->reclength)));
 }
 
 /*
@@ -3149,11 +3155,18 @@ int Field_decimal::store(longlong nr, bool unsigned_val)
 
 double Field_decimal::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_decimal::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   int not_used;
   char *end_not_used;
-  return my_charset_bin.strntod((char*) ptr, field_length, &end_not_used, &not_used);
+  return my_charset_bin.strntod((char*) ptr_arg, field_length, &end_not_used, &not_used);
 }
+
 
 longlong Field_decimal::val_int(void)
 {
