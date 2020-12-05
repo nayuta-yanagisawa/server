@@ -3883,9 +3883,15 @@ int Field_tiny::store(longlong nr, bool unsigned_val)
 
 double Field_tiny::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
-  int tmp= unsigned_flag ? (int) ptr[0] :
-    (int) ((signed char*) ptr)[0];
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_tiny::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
+  int tmp= unsigned_flag ? (int) ptr_arg[0] :
+    (int) ((signed char*) ptr_arg)[0];
   return (double) tmp;
 }
 
