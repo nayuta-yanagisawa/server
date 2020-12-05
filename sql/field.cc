@@ -4227,8 +4227,14 @@ int Field_medium::store(longlong nr, bool unsigned_val)
 
 double Field_medium::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
-  long j= unsigned_flag ? (long) uint3korr(ptr) : sint3korr(ptr);
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_medium::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
+  long j= unsigned_flag ? (long) uint3korr(ptr_arg) : sint3korr(ptr_arg);
   return (double) j;
 }
 
