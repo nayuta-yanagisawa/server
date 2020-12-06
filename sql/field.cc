@@ -4422,11 +4422,18 @@ int Field_long::store(longlong nr, bool unsigned_val)
 
 double Field_long::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_long::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   int32 j;
-  j=sint4korr(ptr);
+  j=sint4korr(ptr_arg);
   return unsigned_flag ? (double) (uint32) j : (double) j;
 }
+
 
 longlong Field_long::val_int(void)
 {
