@@ -4553,9 +4553,15 @@ int Field_longlong::store(longlong nr, bool unsigned_val)
 
 double Field_longlong::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_longlong::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   longlong j;
-  j=sint8korr(ptr);
+  j=sint8korr(ptr_arg);
   /* The following is open coded to avoid a bug in gcc 3.3 */
   if (unsigned_flag)
   {
