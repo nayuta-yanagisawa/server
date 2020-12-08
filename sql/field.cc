@@ -4707,11 +4707,18 @@ int Field_float::store(longlong nr, bool unsigned_val)
 
 double Field_float::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_float::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   float j;
-  float4get(j,ptr);
+  float4get(j,ptr_arg);
   return ((double) j);
 }
+
 
 longlong Field_float::val_int(void)
 {
