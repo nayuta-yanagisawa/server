@@ -2922,7 +2922,7 @@ public:
   int  store(longlong nr, bool unsigned_val) override final;
   int reset() override final { bzero(ptr,sizeof(double)); return 0; }
   double val_real() override final;
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override final { return val_int_from_real(false); }
   ulonglong val_uint() override final { return (ulonglong) val_int_from_real(true); }
   String *val_str(String *, String *) override final;

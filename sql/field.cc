@@ -4988,9 +4988,15 @@ int Field_real::store_time_dec(const MYSQL_TIME *ltime, uint dec_arg)
 
 double Field_double::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_double::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   double j;
-  float8get(j,ptr);
+  float8get(j,ptr_arg);
   return j;
 }
 
