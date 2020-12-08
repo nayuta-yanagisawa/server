@@ -946,8 +946,8 @@ public:
   virtual int  store_time_dec(const MYSQL_TIME *ltime, uint dec);
   virtual int  store_timestamp_dec(const timeval &ts, uint dec);
   int store_timestamp(my_time_t timestamp, ulong sec_part)
-  {
-    return store_timestamp_dec(Timeval(timestamp, sec_part),
+    {
+      return store_timestamp_dec(Timeval(timestamp, sec_part),
                                TIME_SECOND_PART_DIGITS);
   }
   /**
@@ -3228,9 +3228,13 @@ public:
   }
   double val_real() override
   {
+    /* TODO: Replace val_int with val_int_from_ptr */
     return (double) Field_timestamp0::val_int();
   }
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  /* TODO: Implement when val_int_from_ptr has been implemented */
+  double val_real_from_ptr(uchar *ptr_arg) override {
+    return 0.0;
+  }
   bool send(Protocol *protocol) override;
   int cmp(const uchar *,const uchar *) const override;
   void sort_string(uchar *buff,uint length) override;
