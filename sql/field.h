@@ -2383,9 +2383,11 @@ public:
   int  store_decimal(const my_decimal *) override;
   double val_real() override
   {
-    return my_decimal(ptr, precision, dec).to_double();
+    return val_real_from_ptr(ptr);
   }
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override {
+    return my_decimal(ptr_arg, precision, dec).to_double();
+  }
   longlong val_int() override
   {
     return my_decimal(ptr, precision, dec).to_longlong(unsigned_flag);
