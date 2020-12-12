@@ -6552,12 +6552,6 @@ bool Field_year::send(Protocol *protocol)
 }
 
 
-double Field_year::val_real(void)
-{
-  return (double) Field_year::val_int();
-}
-
-
 longlong Field_year::val_int(void)
 {
   DBUG_ASSERT(marked_for_read());
