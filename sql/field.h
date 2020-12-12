@@ -3628,7 +3628,7 @@ public:
                      Type_handler::version_mariadb53());
   }
   double val_real() override;
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
   int cmp(const uchar *,const uchar *) const override;

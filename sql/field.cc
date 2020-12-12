@@ -6099,10 +6099,17 @@ Field *Field_time::new_key_field(MEM_ROOT *root, TABLE *new_table,
 
 double Field_time0::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
-  uint32 j= (uint32) uint3korr(ptr);
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_time0::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
+  uint32 j= (uint32) uint3korr(ptr_arg);
   return (double) j;
 }
+
 
 longlong Field_time0::val_int(void)
 {
