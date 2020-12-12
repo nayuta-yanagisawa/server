@@ -7472,12 +7472,18 @@ Field_string::Warn_filter_string::Warn_filter_string(const THD *thd,
 
 double Field_string::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_string::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   THD *thd= get_thd();
   return Converter_strntod_with_warn(get_thd(),
                                      Warn_filter_string(thd, this),
                                      Field_string::charset(),
-                                     (const char *) ptr,
+                                     (const char *) ptr_arg,
                                      field_length).result();
 }
 
