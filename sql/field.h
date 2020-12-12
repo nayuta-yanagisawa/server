@@ -3494,7 +3494,7 @@ public:
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override
   { return Field_date::get_TIME(ltime, ptr, fuzzydate); }
   double val_real() override;
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;

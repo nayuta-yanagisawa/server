@@ -6688,9 +6688,15 @@ bool Field_date::send(Protocol *protocol)
 
 double Field_date::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_date::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   int32 j;
-  j=sint4korr(ptr);
+  j=sint4korr(ptr_arg);
   return (double) (uint32) j;
 }
 
