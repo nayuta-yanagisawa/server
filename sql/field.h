@@ -3194,6 +3194,7 @@ public:
     store_TIMESTAMP(Timestamp(ts, sec_part).round(decimals(), mode, &warn));
   }
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
+  bool get_date(uchar *ptr_arg,MYSQL_TIME *ltime, date_mode_t fuzzydate);
   int store_native(const Native &value) override;
   bool validate_value_in_record(THD *thd, const uchar *record) const override;
   Item *get_equal_const_item(THD *thd, const Context &ctx, Item *const_item)
@@ -3294,7 +3295,7 @@ public:
   }
   bool send(Protocol *protocol) override;
   double val_real() override;
-  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+  double val_real_from_ptr(uchar *ptr_arg) override;
   my_decimal* val_decimal(my_decimal*) override;
   int set_time() override;
 };

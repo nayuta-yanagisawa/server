@@ -5491,8 +5491,14 @@ Field_timestamp::validate_value_in_record(THD *thd, const uchar *record) const
 
 bool Field_timestamp::get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate)
 {
+  return get_date(ptr, ltime, fuzzydate);
+}
+
+
+bool Field_timestamp::get_date(uchar *ptr_arg, MYSQL_TIME *ltime, date_mode_t fuzzydate)
+{
   ulong sec_part;
-  my_time_t ts= get_timestamp(&sec_part);
+  my_time_t ts= get_timestamp(ptr_arg, &sec_part);
   return get_thd()->timestamp_to_TIME(ltime, ts, sec_part, fuzzydate);
 }
 
@@ -5622,8 +5628,13 @@ bool Field_timestamp_hires::val_native(Native *to)
 
 double Field_timestamp_with_dec::val_real(void)
 {
+  return val_real_from_ptr(ptr);
+}
+
+double Field_timestamp_with_dec::val_real_from_ptr(uchar *ptr_arg)
+{
   MYSQL_TIME ltime;
-  if (get_date(&ltime, Datetime::Options(TIME_NO_ZERO_DATE, get_thd())))
+  if (get_date(ptr_arg, &ltime, Datetime::Options(TIME_NO_ZERO_DATE, get_thd())))
     return 0;
   
   return ltime.year * 1e10 + ltime.month * 1e8 +
