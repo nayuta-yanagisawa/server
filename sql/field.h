@@ -4787,6 +4787,7 @@ public:
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
   double val_real() override;
+  /* TODO: Implement when val_int_from_ptr is implemented */
   double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   String *val_str(String *, String *) override;
