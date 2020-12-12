@@ -7860,11 +7860,17 @@ int Field_varstring::store(const char *from,size_t length,CHARSET_INFO *cs)
 
 double Field_varstring::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_varstring::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   THD *thd= get_thd();
   return Converter_strntod_with_warn(thd, Warn_filter(thd),
                                      Field_varstring::charset(),
-                                     (const char *) get_data(),
+                                     (const char *) get_data(ptr_arg),
                                      get_length()).result();
 }
 
