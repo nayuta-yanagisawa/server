@@ -8684,15 +8684,21 @@ oom_error:
 
 double Field_blob::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_blob::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   char *blob;
-  memcpy(&blob, ptr+packlength, sizeof(char*));
+  memcpy(&blob, ptr_arg+packlength, sizeof(char*));
   if (!blob)
     return 0.0;
   THD *thd= get_thd();
   return  Converter_strntod_with_warn(thd, Warn_filter(thd),
                                       Field_blob::charset(),
-                                      blob, get_length(ptr)).result();
+                                      blob, get_length(ptr_arg)).result();
 }
 
 
