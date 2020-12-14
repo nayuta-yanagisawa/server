@@ -1,0 +1,6 @@
+create table t1 ( t2_id char(32), id2 int);
+create table t2 (id char(32), id2 int, descr text, tp tinyint(1));
+insert into t2 values ('a',7,'b',1);
+
+select * from (select t2.* from t2 left join t1 on t2.id = t1.t2_id
+  group by t2.id) dt where id = 'a' and descr = 'b' and tp = 1;
