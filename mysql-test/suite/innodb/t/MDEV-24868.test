@@ -1,0 +1,12 @@
+--source include/have_innodb.inc
+create table t1 ( name varchar(64) character set utf8, len int);
+
+## NG
+select * from t1 where (name, len) in (select  name, len from information_schema.innodb_sys_columns having len = 8);
+
+## OK
+# select * from t1 where (name, len) in (select  name, len from information_schema.innodb_sys_columns);
+# select * from t1 where (name) in (select name from information_schema.innodb_sys_columns having len = 8);
+
+# clean up
+drop table t1;

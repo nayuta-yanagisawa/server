@@ -8664,9 +8664,11 @@ bool optimize_schema_tables_memory_usage(List<TABLE_LIST> &tables)
   while (TABLE_LIST *table_list= tli++)
   {
     TABLE *table= table_list->table;
-    THD *thd=table->in_use;
+    if (!table_list->schema_table)
+      continue;
 
-    if (!table_list->schema_table || !thd->fill_information_schema_tables())
+    THD *thd=table->in_use;
+    if (!thd->fill_information_schema_tables())
       continue;
 
     if (!table->is_created())
