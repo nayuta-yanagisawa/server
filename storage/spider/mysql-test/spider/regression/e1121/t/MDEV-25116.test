@@ -10,6 +10,8 @@
 --echo this test is for MDEV-25116
 --echo
 
+--echo prepare tables
+
 --connection child2_1
 CREATE DATABASE auto_test_remote;
 USE auto_test_remote;
@@ -28,4 +30,10 @@ eval CREATE TABLE tbl_a (
 ) $MASTER_1_ENGINE $MASTER_1_CHARSET COMMENT='table "tbl_a", srv "s_2_1"';
 --enable_query_log
 
-SELECT IF(COUNT(tbl_a.`id`) >= 0,'Y','N') FROM tbl_a a;
+--echo execute select
+SELECT IF(COUNT(tbl_a.`id`) >= 0,'Y','N') FROM tbl_a;
+
+--echo clean up
+DROP DATABASE IF EXISTS auto_test_local;
+--connection child2_1
+DROP DATABASE IF EXISTS auto_test_remote;
