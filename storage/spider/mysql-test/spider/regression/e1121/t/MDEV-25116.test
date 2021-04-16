@@ -1,0 +1,21 @@
+--source ../../t/test_init.inc
+
+--echo
+--echo this test is for MDEV-25116
+--echo
+
+--connection child2_1
+CREATE DATABASE auto_test_remote;
+USE auto_test_remote;
+
+CREATE TABLE tbl_a (id INT);
+
+--connection master_1
+CREATE DATABASE auto_test_local;
+USE auto_test_local;
+
+eval CREATE TABLE tbl_a (
+    id INT
+) $MASTER_1_ENGINE $MASTER_1_CHARSET COMMENT='table "tbl_a", srv "s_2_1"';
+
+SELECT IF(COUNT(tbl_a.`id`) >= 0,'Y','N') FROM tbl_a a;
