@@ -31,9 +31,16 @@ eval CREATE TABLE tbl_a (
 --enable_query_log
 
 --echo execute select
-SELECT IF(COUNT(tbl_a.`id`) >= 0,'Y','N') FROM tbl_a;
+--let $SELECT_IF_COUNT=SELECT IF(COUNT(tbl_a.`id`) > 0,'Y','N') FROM tbl_a;
+
+--connection child2_1
+eval $SELECT_IF_COUNT;
+
+--connection master_1
+eval $SELECT_IF_COUNT;
 
 --echo clean up
+--connection master_1
 DROP DATABASE IF EXISTS auto_test_local;
 --connection child2_1
 DROP DATABASE IF EXISTS auto_test_remote;
