@@ -31,13 +31,11 @@ eval CREATE TABLE tbl_a (
 --enable_query_log
 
 --echo execute select
---let $SELECT_IF_COUNT=SELECT IF(COUNT(tbl_a.`id`) > 0,'Y','N') FROM tbl_a;
-
---connection child2_1
-eval $SELECT_IF_COUNT;
 
 --connection master_1
-eval $SELECT_IF_COUNT;
+SELECT IF(id > 0,'Y','N') FROM tbl_a;           # OK
+SELECT IF(tbl_a.id > 0,'Y','N') FROM tbl_a;     # OK
+SELECT IF(tbl_a.`id` > 0,'Y','N') FROM tbl_a;   # not OK
 
 --echo clean up
 --connection master_1
