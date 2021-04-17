@@ -1,3 +1,8 @@
+for master_1
+for child2
+child2_1
+child2_2
+child2_3
 for child3
 
 this test is for MDEV-25116
@@ -10,13 +15,13 @@ connection master_1;
 CREATE DATABASE auto_test_local;
 USE auto_test_local;
 execute select
-connection child2_1;
-SELECT IF(COUNT(tbl_a.`id`) > 0,'Y','N') FROM tbl_a;;
-IF(COUNT(tbl_a.`id`) > 0,'Y','N')
-N
 connection master_1;
-SELECT IF(COUNT(tbl_a.`id`) > 0,'Y','N') FROM tbl_a;;
-N
+SELECT IF(id > 0,'Y','N') FROM tbl_a;
+IF(id > 0,'Y','N')
+SELECT IF(tbl_a.id > 0,'Y','N') FROM tbl_a;
+IF(tbl_a.id > 0,'Y','N')
+SELECT IF(tbl_a.`id` > 0,'Y','N') FROM tbl_a;
+IF(tbl_a.`id` > 0,'Y','N')
 clean up
 connection master_1;
 DROP DATABASE IF EXISTS auto_test_local;

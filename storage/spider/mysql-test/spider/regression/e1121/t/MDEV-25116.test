@@ -33,9 +33,7 @@ eval CREATE TABLE tbl_a (
 --echo execute select
 
 --connection master_1
-SELECT IF(id > 0,'Y','N') FROM tbl_a;           # OK
-SELECT IF(tbl_a.id > 0,'Y','N') FROM tbl_a;     # OK
-SELECT IF(tbl_a.`id` > 0,'Y','N') FROM tbl_a;   # not OK
+SELECT IF(COUNT(id > 0),'Y','N') FROM tbl_a;
 
 --echo clean up
 --connection master_1
