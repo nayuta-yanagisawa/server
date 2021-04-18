@@ -31,7 +31,6 @@ eval CREATE TABLE tbl_a (
 --enable_query_log
 
 --echo execute select
-
 --connection master_1
 SELECT IF(COUNT(id > 0),'Y','N') FROM tbl_a;
 
