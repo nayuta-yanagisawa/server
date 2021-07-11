@@ -761,6 +761,8 @@ public:
     return 0;
   }
 
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
+
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override
   {
     DBUG_ASSERT(marked_for_read());

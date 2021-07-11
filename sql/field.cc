@@ -60,11 +60,17 @@ const char field_separator=',';
 // Column marked for read or the field set to read out of record[0]
 bool Field::marked_for_read() const
 {
+  return marked_for_read(ptr);
+}
+
+// Column marked for read or the field set to read out of record[0]
+bool Field::marked_for_read(uchar *ptr_arg) const
+{
   return !table ||
          (!table->read_set ||
           bitmap_is_set(table->read_set, field_index) ||
-          (!(ptr >= table->record[0] &&
-             ptr < table->record[0] + table->s->reclength)));
+          (!(ptr_arg >= table->record[0] &&
+             ptr_arg < table->record[0] + table->s->reclength)));
 }
 
 /*
@@ -3160,11 +3166,18 @@ int Field_decimal::store(longlong nr, bool unsigned_val)
 
 double Field_decimal::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_decimal::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   int not_used;
   char *end_not_used;
-  return my_charset_bin.strntod((char*) ptr, field_length, &end_not_used, &not_used);
+  return my_charset_bin.strntod((char*) ptr_arg, field_length, &end_not_used, &not_used);
 }
+
 
 longlong Field_decimal::val_int(void)
 {
@@ -3882,9 +3895,15 @@ int Field_tiny::store(longlong nr, bool unsigned_val)
 
 double Field_tiny::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
-  int tmp= unsigned_flag ? (int) ptr[0] :
-    (int) ((signed char*) ptr)[0];
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_tiny::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
+  int tmp= unsigned_flag ? (int) ptr_arg[0] :
+    (int) ((signed char*) ptr_arg)[0];
   return (double) tmp;
 }
 
@@ -4043,12 +4062,15 @@ int Field_short::store(longlong nr, bool unsigned_val)
   return error;
 }
 
+double Field_short::val_real(void){
+  return val_real_from_ptr(ptr);
+}
 
-double Field_short::val_real(void)
+double Field_short::val_real_from_ptr(uchar *ptr_arg)
 {
-  DBUG_ASSERT(marked_for_read());
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   short j;
-  j=sint2korr(ptr);
+  j=sint2korr(ptr_arg);
   return unsigned_flag ? (double) (unsigned short) j : (double) j;
 }
 
@@ -4217,8 +4239,14 @@ int Field_medium::store(longlong nr, bool unsigned_val)
 
 double Field_medium::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
-  long j= unsigned_flag ? (long) uint3korr(ptr) : sint3korr(ptr);
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_medium::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
+  long j= unsigned_flag ? (long) uint3korr(ptr_arg) : sint3korr(ptr_arg);
   return (double) j;
 }
 
@@ -4406,11 +4434,18 @@ int Field_long::store(longlong nr, bool unsigned_val)
 
 double Field_long::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_long::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   int32 j;
-  j=sint4korr(ptr);
+  j=sint4korr(ptr_arg);
   return unsigned_flag ? (double) (uint32) j : (double) j;
 }
+
 
 longlong Field_long::val_int(void)
 {
@@ -4530,9 +4565,15 @@ int Field_longlong::store(longlong nr, bool unsigned_val)
 
 double Field_longlong::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_longlong::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   longlong j;
-  j=sint8korr(ptr);
+  j=sint8korr(ptr_arg);
   /* The following is open coded to avoid a bug in gcc 3.3 */
   if (unsigned_flag)
   {
@@ -4678,11 +4719,18 @@ int Field_float::store(longlong nr, bool unsigned_val)
 
 double Field_float::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_float::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   float j;
-  float4get(j,ptr);
+  float4get(j,ptr_arg);
   return ((double) j);
 }
+
 
 longlong Field_float::val_int(void)
 {
@@ -4952,9 +5000,15 @@ int Field_real::store_time_dec(const MYSQL_TIME *ltime, uint dec_arg)
 
 double Field_double::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_double::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   double j;
-  float8get(j,ptr);
+  float8get(j,ptr_arg);
   return j;
 }
 
@@ -5449,8 +5503,14 @@ Field_timestamp::validate_value_in_record(THD *thd, const uchar *record) const
 
 bool Field_timestamp::get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate)
 {
+  return get_date(ptr, ltime, fuzzydate);
+}
+
+
+bool Field_timestamp::get_date(uchar *ptr_arg, MYSQL_TIME *ltime, date_mode_t fuzzydate)
+{
   ulong sec_part;
-  my_time_t ts= get_timestamp(&sec_part);
+  my_time_t ts= get_timestamp(ptr_arg, &sec_part);
   return get_thd()->timestamp_to_TIME(ltime, ts, sec_part, fuzzydate);
 }
 
@@ -5580,8 +5640,13 @@ bool Field_timestamp_hires::val_native(Native *to)
 
 double Field_timestamp_with_dec::val_real(void)
 {
+  return val_real_from_ptr(ptr);
+}
+
+double Field_timestamp_with_dec::val_real_from_ptr(uchar *ptr_arg)
+{
   MYSQL_TIME ltime;
-  if (get_date(&ltime, Datetime::Options(TIME_NO_ZERO_DATE, get_thd())))
+  if (get_date(ptr_arg, &ltime, Datetime::Options(TIME_NO_ZERO_DATE, get_thd())))
     return 0;
   
   return ltime.year * 1e10 + ltime.month * 1e8 +
@@ -6046,10 +6111,17 @@ Field *Field_time::new_key_field(MEM_ROOT *root, TABLE *new_table,
 
 double Field_time0::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
-  uint32 j= (uint32) uint3korr(ptr);
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_time0::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
+  uint32 j= (uint32) uint3korr(ptr_arg);
   return (double) j;
 }
+
 
 longlong Field_time0::val_int(void)
 {
@@ -6499,12 +6571,6 @@ bool Field_year::send(Protocol *protocol)
 }
 
 
-double Field_year::val_real(void)
-{
-  return (double) Field_year::val_int();
-}
-
-
 longlong Field_year::val_int(void)
 {
   DBUG_ASSERT(marked_for_read());
@@ -6641,9 +6707,15 @@ bool Field_date::send(Protocol *protocol)
 
 double Field_date::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_date::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   int32 j;
-  j=sint4korr(ptr);
+  j=sint4korr(ptr_arg);
   return (double) (uint32) j;
 }
 
@@ -7430,12 +7502,18 @@ Field_string::Warn_filter_string::Warn_filter_string(const THD *thd,
 
 double Field_string::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_string::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   THD *thd= get_thd();
   return Converter_strntod_with_warn(get_thd(),
                                      Warn_filter_string(thd, this),
                                      Field_string::charset(),
-                                     (const char *) ptr,
+                                     (const char *) ptr_arg,
                                      field_length).result();
 }
 
@@ -7812,11 +7890,17 @@ int Field_varstring::store(const char *from,size_t length,CHARSET_INFO *cs)
 
 double Field_varstring::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_varstring::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   THD *thd= get_thd();
   return Converter_strntod_with_warn(thd, Warn_filter(thd),
                                      Field_varstring::charset(),
-                                     (const char *) get_data(),
+                                     (const char *) get_data(ptr_arg),
                                      get_length()).result();
 }
 
@@ -8643,15 +8727,21 @@ oom_error:
 
 double Field_blob::val_real(void)
 {
-  DBUG_ASSERT(marked_for_read());
+  return val_real_from_ptr(ptr);
+}
+
+
+double Field_blob::val_real_from_ptr(uchar *ptr_arg)
+{
+  DBUG_ASSERT(marked_for_read(ptr_arg));
   char *blob;
-  memcpy(&blob, ptr+packlength, sizeof(char*));
+  memcpy(&blob, ptr_arg+packlength, sizeof(char*));
   if (!blob)
     return 0.0;
   THD *thd= get_thd();
   return  Converter_strntod_with_warn(thd, Warn_filter(thd),
                                       Field_blob::charset(),
-                                      blob, get_length(ptr)).result();
+                                      blob, get_length(ptr_arg)).result();
 }
 
 

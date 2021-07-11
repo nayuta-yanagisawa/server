@@ -769,6 +769,7 @@ public:
   { DBUG_ASSERT(0); }
 
   bool marked_for_read() const;
+  bool marked_for_read(uchar *ptr_arg) const;
   bool marked_for_write_or_computed() const;
 
   /**
@@ -946,8 +947,8 @@ public:
   virtual int  store_time_dec(const MYSQL_TIME *ltime, uint dec);
   virtual int  store_timestamp_dec(const timeval &ts, uint dec);
   int store_timestamp(my_time_t timestamp, ulong sec_part)
-  {
-    return store_timestamp_dec(Timeval(timestamp, sec_part),
+    {
+      return store_timestamp_dec(Timeval(timestamp, sec_part),
                                TIME_SECOND_PART_DIGITS);
   }
   /**
@@ -1012,6 +1013,7 @@ public:
 #endif
 
   virtual double val_real()=0;
+  virtual double val_real_from_ptr(uchar *ptr_arg)=0;
   virtual longlong val_int()=0;
   /*
     Get ulonglong representation.
@@ -2318,6 +2320,7 @@ public:
   int store(double nr) override;
   int store(longlong nr, bool unsigned_val) override;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   int cmp(const uchar *,const uchar *) const override;
@@ -2385,7 +2388,10 @@ public:
   int  store_decimal(const my_decimal *) override;
   double val_real() override
   {
-    return my_decimal(ptr, precision, dec).to_double();
+    return val_real_from_ptr(ptr);
+  }
+  double val_real_from_ptr(uchar *ptr_arg) override {
+    return my_decimal(ptr_arg, precision, dec).to_double();
   }
   longlong val_int() override
   {
@@ -2531,6 +2537,7 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=0; return 0; }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -2594,6 +2601,7 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=0; return 0; }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -2641,6 +2649,7 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=ptr[2]=0; return 0; }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -2693,6 +2702,7 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int reset() override { ptr[0]=ptr[1]=ptr[2]=ptr[3]=0; return 0; }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   bool send(Protocol *protocol) override;
   String *val_str(String *, String *) override;
@@ -2754,6 +2764,7 @@ public:
     return 0;
   }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -2854,6 +2865,7 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int reset() override { bzero(ptr,sizeof(float)); return 0; }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -2917,6 +2929,7 @@ public:
   int  store(longlong nr, bool unsigned_val) override final;
   int reset() override final { bzero(ptr,sizeof(double)); return 0; }
   double val_real() override final;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override final { return val_int_from_real(false); }
   ulonglong val_uint() override final { return (ulonglong) val_int_from_real(true); }
   String *val_str(String *, String *) override final;
@@ -2968,6 +2981,7 @@ public:
   int store_decimal(const my_decimal *d) override final { null[0]=1; return 0; }
   int reset() override final { return 0; }
   double val_real() override final { return 0.0;}
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override final { return 0;}
   bool val_bool() override final { return false; }
   my_decimal *val_decimal(my_decimal *) override final { return 0; }
@@ -3185,6 +3199,7 @@ public:
     store_TIMESTAMP(Timestamp(ts, sec_part).round(decimals(), mode, &warn));
   }
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
+  bool get_date(uchar *ptr_arg,MYSQL_TIME *ltime, date_mode_t fuzzydate);
   int store_native(const Native &value) override;
   bool validate_value_in_record(THD *thd, const uchar *record) const override;
   Item *get_equal_const_item(THD *thd, const Context &ctx, Item *const_item)
@@ -3221,7 +3236,12 @@ public:
   }
   double val_real() override
   {
+    /* TODO: Replace val_int with val_int_from_ptr */
     return (double) Field_timestamp0::val_int();
+  }
+  /* TODO: Implement when val_int_from_ptr has been implemented */
+  double val_real_from_ptr(uchar *ptr_arg) override {
+    return 0.0;
   }
   bool send(Protocol *protocol) override;
   int cmp(const uchar *,const uchar *) const override;
@@ -3281,6 +3301,7 @@ public:
   }
   bool send(Protocol *protocol) override;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   my_decimal* val_decimal(my_decimal*) override;
   int set_time() override;
 };
@@ -3413,7 +3434,12 @@ public:
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
   int  store_time_dec(const MYSQL_TIME *ltime, uint dec) override;
-  double val_real() override;
+  double val_real() override
+  {
+    return (double) Field_year::val_int();
+  }
+  /* TODO: Implement when val_int_from_ptr has been implemented */
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
@@ -3474,6 +3500,7 @@ public:
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override
   { return Field_date::get_TIME(ltime, ptr, fuzzydate); }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -3513,6 +3540,8 @@ public:
                                     const Conv_param &param) const override;
   int reset() override { ptr[0]=ptr[1]=ptr[2]=0; return 0; }
   double val_real() override;
+  /* TODO: Implement when val_int_from_ptr is implemented */
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -3606,6 +3635,7 @@ public:
                      Type_handler::version_mariadb53());
   }
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   bool get_date(MYSQL_TIME *ltime, date_mode_t fuzzydate) override;
   int cmp(const uchar *,const uchar *) const override;
@@ -3638,6 +3668,7 @@ public:
   enum ha_base_keytype key_type() const override { return HA_KEYTYPE_BINARY; }
   longlong val_int() override;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   void make_send_field(Send_field *) override;
 };
 
@@ -3794,6 +3825,8 @@ public:
   {
     return (double) Field_datetime0::val_int();
   }
+  /* TODO: Implement when val_int_from_ptr is implemented. */
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   String *val_str(String *, String *) override;
   bool send(Protocol *protocol) override;
@@ -3848,6 +3881,7 @@ public:
     memcpy(to, ptr, length);
   }
   double val_real() override final;
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override final;
   String *val_str(String *, String *) override final;
 };
@@ -4031,6 +4065,7 @@ public:
   int store(const char *to,size_t length,CHARSET_INFO *charset) override;
   using Field_str::store;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   my_decimal *val_decimal(my_decimal *) override;
@@ -4172,6 +4207,7 @@ public:
   void mark_unused_memory_as_defined() override;
 #endif
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   my_decimal *val_decimal(my_decimal *) override;
@@ -4238,6 +4274,7 @@ private:
   using Field_str::store;
   String *val_str(String *, String *) override;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   uint size_of() const override { return sizeof *this; }
   /*
@@ -4470,6 +4507,7 @@ public:
   int store(const char *to, size_t length, CHARSET_INFO *charset) override;
   using Field_str::store;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override;
   longlong val_int() override;
   String *val_str(String *, String *) override;
   my_decimal *val_decimal(my_decimal *) override;
@@ -4645,6 +4683,7 @@ private:
   using Field_str::store;
   String *val_str(String *, String *) override;
   double val_real() override;
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   /*
     We use the default Field::send() implementation,
@@ -4755,6 +4794,8 @@ public:
   int  store(double nr) override;
   int  store(longlong nr, bool unsigned_val) override;
   double val_real() override;
+  /* TODO: Implement when val_int_from_ptr is implemented */
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   String *val_str(String *, String *) override;
   int cmp(const uchar *,const uchar *) const override;
@@ -4901,6 +4942,8 @@ public:
   int store(longlong nr, bool unsigned_val) override;
   int store_decimal(const my_decimal *) override;
   double val_real() override;
+  /* TODO: Implement when val_int_from_ptr has been implemented */
+  double val_real_from_ptr(uchar *ptr_arg) override { return 0.0; }
   longlong val_int() override;
   String *val_str(String*, String *) override;
   bool str_needs_quotes() const override { return true; }
